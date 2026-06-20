@@ -47,6 +47,7 @@
     background:linear-gradient(180deg, color-mix(in srgb,var(--bg) 92%,transparent) 55%, transparent)}
   .brand{font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:.5px; font-size:26px; line-height:1; pointer-events:auto}
   .brand b{color:var(--ignite)}
+  .brand i{font-style:normal;font-size:11px;font-weight:600;color:var(--ink-faint);margin-left:7px;letter-spacing:.3px}
   .gear{pointer-events:auto; width:42px;height:42px;border:1px solid var(--line);border-radius:12px;
     background:color-mix(in srgb,var(--panel) 92%,transparent); color:var(--ink-dim); font-size:20px;
     display:grid;place-items:center; cursor:pointer; position:relative; margin-left:auto}
@@ -95,6 +96,12 @@
   .opt small{font-size:11px;font-weight:600;color:var(--ink-faint)}
   .opt.on{border-color:var(--ignite);background:color-mix(in srgb,var(--ignite) 16%,transparent);color:var(--ink)}
   .opt.on small{color:var(--ignite-soft)}
+  .stepper{display:flex;align-items:center;gap:12px}
+  .stepper button{width:58px;height:58px;border-radius:14px;border:1.5px solid var(--line);background:var(--panel-2);color:var(--ink);font-size:30px;font-weight:700;cursor:pointer;line-height:1}
+  .stepper button:active{border-color:var(--ignite);background:color-mix(in srgb,var(--ignite) 14%,transparent)}
+  .kmval{flex:1;text-align:center}
+  .kmval b{font-family:'Barlow Condensed',sans-serif;font-size:40px;line-height:1;color:var(--ink)}
+  .kmval span{font-size:14px;color:var(--ink-faint);margin-left:5px}
   .wactions{display:flex;gap:10px;margin-top:16px}
   .wactions .big{margin-top:0}
   .whint{font-size:12.5px;color:var(--ink-faint);text-align:center;margin-top:10px;min-height:16px}
@@ -182,7 +189,7 @@
 
 <!-- Header -->
 <div class="top">
-  <div class="brand">Curva<b>Go</b></div>
+  <div class="brand">Curva<b>Go</b><i id="brandVer"></i></div>
   <div class="gear" id="gearBtn">⚙<span class="dot"></span></div>
 </div>
 
@@ -218,11 +225,10 @@
 
     <div id="distBlock">
       <div class="seclabel" data-i18n="w_dist">Distancia a recorrer</div>
-      <div class="opts" id="optDist">
-        <button class="opt" data-km="50">50<small>km</small></button>
-        <button class="opt on" data-km="100">100<small>km</small></button>
-        <button class="opt" data-km="150">150<small>km</small></button>
-        <button class="opt" data-km="200">200<small>km</small></button>
+      <div class="stepper">
+        <button id="kmMinus">−</button>
+        <div class="kmval"><b id="kmVal">100</b><span>km</span></div>
+        <button id="kmPlus">+</button>
       </div>
     </div>
 
@@ -303,7 +309,7 @@
 /* ===========================================================================
    CurvaGo v1.2.0 — flujo guiado (Generar ruta → asistente → Iniciar).
    =========================================================================== */
-const APP_VERSION='1.3.0';
+const APP_VERSION='1.4.0';
 const BR="https://brouter.de/brouter";
 const $=s=>document.querySelector(s);
 
@@ -381,7 +387,7 @@ function applyTheme(){document.documentElement.dataset.theme=settings.theme;
   $('#themeColor').setAttribute('content',dark?'#0e1116':'#eef1f5');}
 function applyLang(){document.documentElement.lang=lang;
   document.querySelectorAll('[data-i18n]').forEach(el=>el.innerHTML=t(el.dataset.i18n));
-  $('#verLine').textContent='CurvaGo v'+APP_VERSION;syncSet();if(panelMode==='Lib')renderLib();}
+  $('#verLine').textContent='CurvaGo v'+APP_VERSION;var bv=$('#brandVer');if(bv)bv.textContent='v'+APP_VERSION;syncSet();if(panelMode==='Lib')renderLib();}
 function syncSet(){const m=$('#setMenu');
   m.querySelectorAll('[data-lang]').forEach(b=>b.classList.toggle('sel',b.dataset.lang===lang));
   m.querySelectorAll('[data-theme]').forEach(b=>b.classList.toggle('sel',b.dataset.theme===settings.theme));
@@ -499,7 +505,7 @@ function openWizard(){show('Wizard');collapsePanel(false);syncWizard();updateWiz
 function syncWizard(){
   $('#optTrip').querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.trip===wiz.trip));
   $('#optOrigin').querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.origin===wiz.origin));
-  $('#optDist').querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',+b.dataset.km===wiz.km));
+  $('#kmVal').textContent=wiz.km;
   $('#optLevel').querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.level===wiz.level));
   $('#distBlock').hidden = wiz.trip!=='circular';
   $('#destBlock').hidden = wiz.trip==='circular';
@@ -531,21 +537,23 @@ async function generateCircularRoute(o,km,level){
   spinGen(true);
   try{
     await profileFor(level);const targetM=km*1000;
-    let best=null,bestErr=1e9,bestPts=null,bestLL=null,calls=0;
+    // overshoot costs 3x → the loop tends to land AT or just BELOW the requested distance
+    const cost=L=>L<=targetM?(targetM-L):(L-targetM)*3;
+    let best=null,bestCost=1e15,bestPts=null,bestLL=null,calls=0;
     const seeds=[15,90,165,240,315].map(a=>a+Math.random()*40).sort(()=>Math.random()-.5);
     for(const H of seeds){
-      let R=km/(2*Math.PI)/1.3;
+      let R=km/(2*Math.PI)/1.4;            // start short → approach from below
       for(let it=0;it<3&&calls<9;it++){
         const pts=ringWaypoints(o,R,H,6);
         const ll=pts.map(p=>`${p[1].toFixed(5)},${p[0].toFixed(5)}`).join('|');
         calls++;const fr=await fetchRoute(ll,level);
         if(!fr)break;
-        const L=+fr.properties['track-length'],err=Math.abs(L-targetM)/targetM;
-        if(err<bestErr){bestErr=err;best=fr;bestPts=pts;bestLL=ll;}
-        if(err<0.12)break;
-        R*=Math.max(0.55,Math.min(1.8,targetM/L));
+        const L=+fr.properties['track-length'];
+        if(cost(L)<bestCost){bestCost=cost(L);best=fr;bestPts=pts;bestLL=ll;}
+        if(L<=targetM&&(targetM-L)/targetM<0.12)break;   // good: just under target
+        R*=Math.max(0.6,Math.min(1.7,targetM/L*0.98));
       }
-      if(bestErr<0.12)break;
+      if(best&&bestCost<targetM*0.12)break;
     }
     if(!best){toast(t('t_route_fail'));return false;}
     clearRouteOnly();bestPts.slice(0,-1).forEach(p=>addWaypoint({lat:p[0],lng:p[1]}));
@@ -740,7 +748,9 @@ $('#libBack').onclick=()=>show('Idle');
 /* wizard option groups */
 $('#optTrip').onclick=e=>{const v=e.target.closest('[data-trip]');if(!v)return;wiz.trip=v.dataset.trip;syncWizard();updateWizHint();};
 $('#optOrigin').onclick=e=>{const v=e.target.closest('[data-origin]');if(!v)return;wiz.origin=v.dataset.origin;syncWizard();if(wiz.origin==='map')startPick('origin');else{if(!me)locate(null,true);updateWizHint();}};
-$('#optDist').onclick=e=>{const v=e.target.closest('[data-km]');if(!v)return;wiz.km=+v.dataset.km;syncWizard();};
+function setKm(v){wiz.km=Math.max(25,Math.min(400,v));$('#kmVal').textContent=wiz.km;}
+$('#kmMinus').onclick=()=>setKm(wiz.km-25);
+$('#kmPlus').onclick=()=>setKm(wiz.km+25);
 $('#pickDest').onclick=()=>startPick('dest');
 $('#optLevel').onclick=e=>{const v=e.target.closest('[data-level]');if(!v)return;wiz.level=v.dataset.level;syncWizard();};
 $('#wCancel').onclick=()=>{resetAll();show('Idle');};

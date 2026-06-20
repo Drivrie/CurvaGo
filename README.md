@@ -1,4 +1,4 @@
-# CurvaGo 🏍️ — Carreteras con curvas · v1.3.0
+# CurvaGo 🏍️ — Carreteras con curvas · v1.4.0
 
 Planificador de rutas **con curvas para moto**, en un único HTML, para móvil y sin instalación.
 Genera rutas y **vueltas circulares desde tu posición**, las puntúa por diversión, te **guía con
@@ -24,7 +24,10 @@ así OsmAnd anuncia los cruces reales por voz siguiendo **tu línea exacta**.
 
 ---
 
-## 2. Novedades v1.3.0
+## 2. Novedades v1.4.0
+
+- **Versión visible** junto al logo (ahora `v1.4.0`): confirma de un vistazo si has cargado la última.
+- **Distancia con selector ±25 km** (50, 75, 100, 125, 150…) que **tiende a quedarse por debajo** de lo pedido.
 
 - **Mapa que rota en sentido de marcha** durante el guiado (estilo navegador, "heading-up"), con la flecha del piloto siempre apuntando arriba. Se puede desactivar en ⚙.
 - **Velocidad en grande** durante la ruta (badge inferior izquierdo).

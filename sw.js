@@ -6,7 +6,7 @@
    - HTML is network-first (so updates appear); static assets cache-first;
      routing (BRouter) is always live. */
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const SHELL = 'curvago-shell-' + VERSION;
 const TILES = 'curvago-tiles';            // tiles cache is shared across versions
 const TILE_LIMIT = 4000;
