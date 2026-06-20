@@ -153,6 +153,16 @@
   input[type=file]{display:none}
   .spin{width:16px;height:16px;border:2px solid #1a0f04;border-top-color:transparent;border-radius:50%;display:inline-block;animation:sp .7s linear infinite;vertical-align:-3px;margin-right:4px}
   @keyframes sp{to{transform:rotate(360deg)}}
+  /* heading-up rotation + rider + speed */
+  #map{transform:rotate(var(--rot,0deg));transform-origin:center center;transition:transform .25s ease}
+  body.rot #map{top:-55%;left:-55%;width:210%;height:210%}
+  .rwrap{width:32px;height:32px;display:grid;place-items:center}
+  .rchev{width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:26px solid var(--cool);filter:drop-shadow(0 1px 2px #06080b)}
+  .spdbadge{position:absolute;z-index:660;left:14px;bottom:calc(var(--ph,150px) + 14px);display:none;
+    background:color-mix(in srgb,var(--panel) 90%,transparent);border:1px solid var(--line);border-radius:16px;padding:8px 16px;text-align:center;backdrop-filter:blur(6px);box-shadow:0 6px 20px var(--shadow)}
+  .spdbadge.on{display:block}
+  .spdbadge b{font-family:'Barlow Condensed',sans-serif;font-size:42px;line-height:.85;color:var(--ink);display:block}
+  .spdbadge span{font-size:11px;letter-spacing:1.5px;color:var(--ink-faint);text-transform:uppercase}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -168,6 +178,7 @@
   </div>
   <div class="spd" id="nvSpd"></div>
 </div>
+<div class="spdbadge" id="spdBadge"><b>0</b><span>km/h</span></div>
 
 <!-- Header -->
 <div class="top">
@@ -275,6 +286,7 @@
   <h4 data-i18n="set_opt">Opciones</h4>
   <div class="seg"><label data-i18n="set_wake">Mantener pantalla encendida</label><div class="sw" id="swWake"></div></div>
   <div class="seg"><label data-i18n="set_voice">Voz de guiado</label><div class="sw" id="swVoice"></div></div>
+  <div class="seg"><label data-i18n="set_rotate">Rotar mapa (marcha)</label><div class="sw" id="swRotate"></div></div>
   <h4 data-i18n="set_data">Datos</h4>
   <button class="mi" id="backupExport" data-i18n="set_backup">⤓ Exportar copia de seguridad</button>
   <button class="mi" id="backupImport" data-i18n="set_restore">⤒ Restaurar copia</button>
@@ -291,7 +303,7 @@
 /* ===========================================================================
    CurvaGo v1.2.0 — flujo guiado (Generar ruta → asistente → Iniciar).
    =========================================================================== */
-const APP_VERSION='1.2.0';
+const APP_VERSION='1.3.0';
 const BR="https://brouter.de/brouter";
 const $=s=>document.querySelector(s);
 
@@ -306,7 +318,7 @@ const I18N={
   sum_time:"tiempo",sum_twist:"curvas",res_start:"▶ Iniciar guiado",res_osm:"🔊 OsmAnd (voz)",res_gmaps:"Google Maps",res_save:"★ Guardar ruta",res_new:"↺ Nueva ruta",
   tab_plan:"Planificadas",tab_done:"Realizadas",back:"← Volver",
   set_lang:"Idioma",set_theme:"Tema",th_sys:"Sistema",th_light:"Claro",th_dark:"Oscuro",set_map:"Mapa",off_dl:"⤓ Descargar esta zona (offline)",
-  set_opt:"Opciones",set_wake:"Mantener pantalla encendida",set_voice:"Voz de guiado",
+  set_opt:"Opciones",set_wake:"Mantener pantalla encendida",set_voice:"Voz de guiado",set_rotate:"Rotar mapa (marcha)",
   set_data:"Datos",set_backup:"⤓ Exportar copia de seguridad",set_restore:"⤒ Restaurar copia",set_update:"↻ Buscar actualización",
   h_gps:"Se usará tu ubicación actual como origen.",h_pickorigin:"Toca el mapa para fijar el <b>origen</b>.",h_origin_set:"Origen fijado ✓",
   h_pickdest:"Toca el mapa para fijar el <b>destino</b>.",h_dest_set:"Destino fijado ✓",h_need_dest:"Falta elegir el destino en el mapa.",
@@ -336,7 +348,7 @@ const I18N={
   sum_time:"time",sum_twist:"twist",res_start:"▶ Start guidance",res_osm:"🔊 OsmAnd (voice)",res_gmaps:"Google Maps",res_save:"★ Save route",res_new:"↺ New route",
   tab_plan:"Planned",tab_done:"Ridden",back:"← Back",
   set_lang:"Language",set_theme:"Theme",th_sys:"System",th_light:"Light",th_dark:"Dark",set_map:"Map",off_dl:"⤓ Download this area (offline)",
-  set_opt:"Options",set_wake:"Keep screen on",set_voice:"Guidance voice",
+  set_opt:"Options",set_wake:"Keep screen on",set_voice:"Guidance voice",set_rotate:"Rotate map (heading-up)",
   set_data:"Data",set_backup:"⤓ Export backup",set_restore:"⤒ Restore backup",set_update:"↻ Check for update",
   h_gps:"Your current location will be the origin.",h_pickorigin:"Tap the map to set the <b>origin</b>.",h_origin_set:"Origin set ✓",
   h_pickdest:"Tap the map to set the <b>destination</b>.",h_dest_set:"Destination set ✓",h_need_dest:"Pick the destination on the map.",
@@ -362,7 +374,7 @@ let lang=localStorage.getItem('curvago_lang')||'es';
 function t(k,v){let s=(I18N[lang][k]!==undefined?I18N[lang][k]:(I18N.en[k]||k));if(v)for(const x in v)s=s.replace('{'+x+'}',v[x]);return s;}
 
 /* ---------- Settings ---------- */
-const settings=Object.assign({theme:'system',wake:true,voice:true,layer:'cyclosm'},JSON.parse(localStorage.getItem('curvago_set')||'{}'));
+const settings=Object.assign({theme:'system',wake:true,voice:true,rotate:true,layer:'cyclosm'},JSON.parse(localStorage.getItem('curvago_set')||'{}'));
 function saveSettings(){localStorage.setItem('curvago_set',JSON.stringify(settings));}
 function applyTheme(){document.documentElement.dataset.theme=settings.theme;
   const dark=settings.theme==='dark'||(settings.theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);
@@ -374,7 +386,7 @@ function syncSet(){const m=$('#setMenu');
   m.querySelectorAll('[data-lang]').forEach(b=>b.classList.toggle('sel',b.dataset.lang===lang));
   m.querySelectorAll('[data-theme]').forEach(b=>b.classList.toggle('sel',b.dataset.theme===settings.theme));
   m.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('sel',b.dataset.layer===settings.layer));
-  $('#swWake').classList.toggle('on',settings.wake);$('#swVoice').classList.toggle('on',settings.voice);}
+  $('#swWake').classList.toggle('on',settings.wake);$('#swVoice').classList.toggle('on',settings.voice);$('#swRotate').classList.toggle('on',settings.rotate);}
 
 /* ---------- Profiles ---------- */
 function profileText(c){return `
@@ -385,7 +397,7 @@ assign processUnusedTags = false
 assign considerTurnRestrictions = true
 assign turnInstructionMode = 3
 ---context:way
-assign turncost = 0
+assign turncost = ${c.turn||0}
 assign initialcost = 0
 assign uphillcostfactor = 0
 assign downhillcostfactor = 0
@@ -409,16 +421,16 @@ assign initialcost
   switch access=private|no 10000
   0`.trim();}
 const LEVELS={
-  rapida:{motorway:1.0,trunk:1.0,primary:1.0,secondary:1.05,tertiary:1.15,unclassified:1.4,residential:1.6},
-  divertida:{motorway:6,trunk:2.5,primary:1.6,secondary:1.1,tertiary:0.95,unclassified:1.0,residential:1.4},
-  sinuosa:{motorway:10000,trunk:8,primary:3.5,secondary:1.2,tertiary:0.85,unclassified:0.9,residential:1.3},
-  extrema:{motorway:10000,trunk:12,primary:6,secondary:1.6,tertiary:0.7,unclassified:0.8,residential:1.5}
+  rapida:{motorway:1.0,trunk:1.0,primary:1.0,secondary:1.05,tertiary:1.2,unclassified:1.6,residential:2.0,turn:95},
+  divertida:{motorway:8,trunk:2.0,primary:1.3,secondary:1.0,tertiary:0.95,unclassified:1.1,residential:2.2,turn:75},
+  sinuosa:{motorway:10000,trunk:4,primary:2.0,secondary:1.0,tertiary:0.85,unclassified:1.0,residential:2.5,turn:65},
+  extrema:{motorway:10000,trunk:6,primary:2.8,secondary:1.1,tertiary:0.75,unclassified:0.95,residential:2.8,turn:55}
 };
 function levelLabel(l){return t('lvl_'+(l==='divertida'?'curvas':l));}
-const profileIds=JSON.parse(localStorage.getItem('curvago_pids')||'{}');
+const profileIds=JSON.parse(localStorage.getItem('curvago_pids_v13')||'{}');
 async function profileFor(level){if(profileIds[level])return profileIds[level];
   try{const r=await fetch(BR+"/profile",{method:'POST',headers:{'Content-Type':'text/plain'},body:profileText(LEVELS[level])});
-    const j=await r.json();if(j.profileid&&!j.error){profileIds[level]=j.profileid;localStorage.setItem('curvago_pids',JSON.stringify(profileIds));return j.profileid;}}catch(e){}
+    const j=await r.json();if(j.profileid&&!j.error){profileIds[level]=j.profileid;localStorage.setItem('curvago_pids_v13',JSON.stringify(profileIds));return j.profileid;}}catch(e){}
   return 'moped';}
 
 /* ---------- State ---------- */
@@ -504,30 +516,56 @@ async function generate(){
   if(wiz.trip!=='circular'&&!wiz.destPt){startPick('dest');return;}
   mode=wiz.level;
   const o=wiz.origin==='gps'?{lat:me[0],lng:me[1]}:wiz.originPt;
-  clearRouteOnly();
-  if(wiz.trip==='circular'){const pts=buildCircular([o.lat,o.lng],wiz.km,Math.random()*360);pts.forEach(p=>addWaypoint({lat:p[0],lng:p[1]}));}
-  else{addWaypoint(o);if(wiz.trip==='round'){addWaypoint(wiz.destPt);addWaypoint(o);}else addWaypoint(wiz.destPt);}
-  toast(t('t_gen'),1500);
-  const ok=await route();
+  toast(t('t_gen'),1800);
+  let ok=false;
+  if(wiz.trip==='circular') ok=await generateCircularRoute([o.lat,o.lng],wiz.km,mode);
+  else{clearRouteOnly();addWaypoint(o);if(wiz.trip==='round'){addWaypoint(wiz.destPt);addWaypoint(o);}else addWaypoint(wiz.destPt);ok=await route();}
   if(ok)showResult();
 }
-function buildCircular(o,km,h){const r=km/(2*Math.PI),pts=[o];[60,180,300].forEach(off=>pts.push(dest(o,r,(h+off)%360)));pts.push(o);return pts;}
+/* Coherent loop: origin sits on a ring; several well-spread vias make a real loop
+   (no out-and-back), then we calibrate the radius to hit the requested distance. */
+function ringWaypoints(o,Rkm,H,n){const C=dest(o,Rkm,H),oa=(H+180)%360,pts=[o];
+  for(let i=1;i<n;i++){const ang=(oa+i*(360/n))%360,rr=Rkm*(0.85+Math.random()*0.3);pts.push(dest(C,rr,ang));}
+  pts.push(o);return pts;}
+async function generateCircularRoute(o,km,level){
+  spinGen(true);
+  try{
+    await profileFor(level);const targetM=km*1000;
+    let best=null,bestErr=1e9,bestPts=null,bestLL=null,calls=0;
+    const seeds=[15,90,165,240,315].map(a=>a+Math.random()*40).sort(()=>Math.random()-.5);
+    for(const H of seeds){
+      let R=km/(2*Math.PI)/1.3;
+      for(let it=0;it<3&&calls<9;it++){
+        const pts=ringWaypoints(o,R,H,6);
+        const ll=pts.map(p=>`${p[1].toFixed(5)},${p[0].toFixed(5)}`).join('|');
+        calls++;const fr=await fetchRoute(ll,level);
+        if(!fr)break;
+        const L=+fr.properties['track-length'],err=Math.abs(L-targetM)/targetM;
+        if(err<bestErr){bestErr=err;best=fr;bestPts=pts;bestLL=ll;}
+        if(err<0.12)break;
+        R*=Math.max(0.55,Math.min(1.8,targetM/L));
+      }
+      if(bestErr<0.12)break;
+    }
+    if(!best){toast(t('t_route_fail'));return false;}
+    clearRouteOnly();bestPts.slice(0,-1).forEach(p=>addWaypoint({lat:p[0],lng:p[1]}));
+    setActiveRoute(best,level,bestLL);return true;
+  }finally{spinGen(false);}
+}
 function dest(o,dKm,brg){const R=6371,r=x=>x*Math.PI/180,D=x=>x*180/Math.PI,br=r(brg),la=r(o[0]),lo=r(o[1]),d=dKm/R;
   const la2=Math.asin(Math.sin(la)*Math.cos(d)+Math.cos(la)*Math.sin(d)*Math.cos(br));
   const lo2=lo+Math.atan2(Math.sin(br)*Math.sin(d)*Math.cos(la),Math.cos(d)-Math.sin(la)*Math.sin(la2));return[D(la2),D(lo2)];}
 
 /* ---------- Routing ---------- */
-async function route(){
-  if(waypoints.length<2)return false;
-  $('#wGenerate').innerHTML='<span class="spin"></span>'+t('t_gen');$('#wGenerate').disabled=true;
-  try{await profileFor(mode);
-    const ll=waypoints.map(w=>`${w.lng.toFixed(5)},${w.lat.toFixed(5)}`).join('|');lastReq={ll,level:mode};
-    const r=await fetch(`${BR}?lonlats=${ll}&profile=${profileIds[mode]||'moped'}&alternativeidx=0&format=geojson`);
-    if(!r.ok)throw 0;const gj=await r.json();routeData=gj.features[0];routeData._level=mode;
-    drawRoute(routeData);return true;
-  }catch(e){toast(t('t_route_fail'));return false;}
-  finally{$('#wGenerate').disabled=false;$('#wGenerate').textContent=t('w_generate');}
-}
+function spinGen(on){const b=$('#wGenerate');if(on){b.disabled=true;b.innerHTML='<span class="spin"></span>'+t('t_gen');}else{b.disabled=false;b.textContent=t('w_generate');}}
+async function fetchRoute(ll,level){await profileFor(level);
+  try{const r=await fetch(`${BR}?lonlats=${ll}&profile=${profileIds[level]||'moped'}&alternativeidx=0&format=geojson`);
+    if(!r.ok)return null;const gj=await r.json();return(gj.features&&gj.features[0])?gj.features[0]:null;}catch(e){return null;}}
+function setActiveRoute(fr,level,ll){routeData=fr;routeData._level=level;lastReq={ll,level};drawRoute(fr);}
+async function route(){if(waypoints.length<2)return false;spinGen(true);
+  try{const ll=waypoints.map(w=>`${w.lng.toFixed(5)},${w.lat.toFixed(5)}`).join('|');
+    const fr=await fetchRoute(ll,mode);if(!fr){toast(t('t_route_fail'));return false;}
+    setActiveRoute(fr,mode,ll);return true;}finally{spinGen(false);}}
 function drawRoute(f){if(routeLine)map.removeLayer(routeLine);
   const ll=f.geometry.coordinates.map(c=>[c[1],c[0]]);
   const glow=L.polyline(ll,{color:'#ff7a18',weight:14,opacity:.16}),main=L.polyline(ll,{color:'#ff7a18',weight:6,opacity:.95});
@@ -559,7 +597,7 @@ async function startGuidance(){
   try{const prof=await profileFor(lastReq.level);const r=await fetch(`${BR}?lonlats=${lastReq.ll}&profile=${prof}&alternativeidx=0&format=gpx`);if(r.ok)guide.cues=parseGpxTurns(await r.text());}catch(e){}
   guide.on=true;await acquireWake();
   $('#nav').classList.add('on');$('#nvIc').textContent='▶';$('#nvTx').firstChild.textContent=t('v_start');$('#nvSub').textContent='';speak(t('v_start'));
-  collapsePanel(true);startRecording(true);toast(t('t_guide_on'),3200);
+  if(me)makeRider(me);enterRotate();collapsePanel(true);startRecording(true);toast(t('t_guide_on'),3200);
 }
 function guidanceStep(pt){if(!guide.on)return;
   $('#nvSpd').textContent='';
@@ -570,8 +608,28 @@ function guidanceStep(pt){if(!guide.on)return;
     if(d<110){if(ph){$('#nvTx').firstChild.textContent=ph;$('#nvSub').textContent='';speak(ph);}guide.idx++;}
     else{if(ph){$('#nvTx').firstChild.textContent=ph;$('#nvSub').textContent=Math.round(d)+' m';}break;}}
   if(guide.idx>=guide.cues.length){$('#nvTx').firstChild.textContent=t('v_arrive');$('#nvIc').textContent='⚑';}}
-function stopGuidance(){guide.on=false;$('#nav').classList.remove('on');try{speechSynthesis.cancel();}catch(e){}}
+function stopGuidance(){guide.on=false;$('#nav').classList.remove('on');$('#spdBadge').classList.remove('on');exitRotate();if(me)makeDot(me);try{speechSynthesis.cancel();}catch(e){}}
 
+/* ---------- Nav view: heading-up rotation + speed ---------- */
+let _hdg=0,_prevPt=null;
+function smoothAngle(a,b){let d=b-a;while(d>180)d-=360;while(d<-180)d+=360;return((a+d*0.4)%360+360)%360;}
+function setRot(deg){document.documentElement.style.setProperty('--rot',deg+'deg');}
+function enterRotate(){if(!settings.rotate)return;document.body.classList.add('rot');setTimeout(()=>map.invalidateSize(),60);}
+function exitRotate(){document.body.classList.remove('rot');setRot(0);_hdg=0;_prevPt=null;setTimeout(()=>map.invalidateSize(),60);}
+function riderIcon(h){return L.divIcon({className:'rider',html:`<div class="rwrap" style="transform:rotate(${h}deg)"><div class="rchev"></div></div>`,iconSize:[32,32],iconAnchor:[16,16]});}
+function makeRider(pt){if(meMarker)map.removeLayer(meMarker);meMarker=L.marker(pt,{icon:riderIcon(_hdg),zIndexOffset:1000,interactive:false}).addTo(map);}
+function makeDot(pt){if(meMarker)map.removeLayer(meMarker);meMarker=L.circleMarker(pt,{radius:8,color:'#0b0e12',weight:2,fillColor:'#3ea6ff',fillOpacity:1}).addTo(map);}
+function updateNavView(pt,coords){
+  const spd=Math.max(0,(coords.speed||0)*3.6);
+  let hdg=_hdg;
+  if(coords.heading!=null&&!isNaN(coords.heading)&&spd>3)hdg=coords.heading;
+  else if(_prevPt)hdg=bearing([_prevPt[1],_prevPt[0]],[pt[1],pt[0]]);
+  _hdg=smoothAngle(_hdg,hdg);_prevPt=pt;
+  if(guide.on){const sb=$('#spdBadge');sb.classList.add('on');sb.querySelector('b').textContent=Math.round(spd);
+    if(settings.rotate){setRot(-_hdg);if(meMarker&&meMarker.setIcon)meMarker.setIcon(riderIcon(_hdg));map.setView(pt,map.getZoom(),{animate:false});}
+    else map.panTo(pt,{animate:false});
+  }else map.panTo(pt,{animate:false});
+}
 /* ---------- Recording ---------- */
 function startRecording(silent){if(ride.on)return;if(!navigator.geolocation){toast(t('t_geo_no'));return;}
   ride={on:true,track:[],line:L.polyline([],{color:'#3ea6ff',weight:6}).addTo(map),dist:0,maxSpd:0,t0:Date.now(),speeds:[],watch:null};
@@ -580,8 +638,7 @@ function startRecording(silent){if(ride.on)return;if(!navigator.geolocation){toa
     if(ride.track.length){const pr=ride.track[ride.track.length-1];ride.dist+=haversine([pr[1],pr[0]],[pt[1],pt[0]]);}
     ride.track.push(pt);ride.line.addLatLng(pt);
     const spd=(p.coords.speed||0)*3.6;if(spd>0)ride.speeds.push(spd);if(spd>ride.maxSpd)ride.maxSpd=spd;
-    me=pt;meMarker?meMarker.setLatLng(pt):0;map.panTo(pt,{animate:false});
-    if(guide.on)$('#nvSpd').textContent=Math.round(spd)+' km/h';guidanceStep(pt);
+    me=pt;if(meMarker&&meMarker.setLatLng)meMarker.setLatLng(pt);updateNavView(pt,p.coords);guidanceStep(pt);
   },()=>toast(t('t_gps_lost')),{enableHighAccuracy:true,maximumAge:1000});}
 function stopRecording(){if(!ride.on)return;if(ride.watch!=null)navigator.geolocation.clearWatch(ride.watch);
   if(guide.on)stopGuidance();if(!settings.wake)releaseWake();
@@ -705,6 +762,7 @@ $('#setMenu').onclick=e=>{const L=e.target.dataset.lang,Th=e.target.dataset.them
 $('#dlArea').onclick=downloadArea;
 $('#swWake').onclick=()=>{settings.wake=!settings.wake;saveSettings();syncSet();settings.wake?acquireWake():releaseWake();};
 $('#swVoice').onclick=()=>{settings.voice=!settings.voice;saveSettings();syncSet();};
+$('#swRotate').onclick=()=>{settings.rotate=!settings.rotate;saveSettings();syncSet();if(guide.on){settings.rotate?enterRotate():exitRotate();}};
 $('#backupExport').onclick=exportBackup;
 $('#backupImport').onclick=()=>$('#backupFile').click();
 $('#backupFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>importBackup(rd.result);rd.readAsText(f);e.target.value='';};

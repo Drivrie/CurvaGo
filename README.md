@@ -1,4 +1,4 @@
-# CurvaGo 🏍️ — Carreteras con curvas · v1.2.0
+# CurvaGo 🏍️ — Carreteras con curvas · v1.3.0
 
 Planificador de rutas **con curvas para moto**, en un único HTML, para móvil y sin instalación.
 Genera rutas y **vueltas circulares desde tu posición**, las puntúa por diversión, te **guía con
@@ -24,20 +24,12 @@ así OsmAnd anuncia los cruces reales por voz siguiendo **tu línea exacta**.
 
 ---
 
-## 2. Novedades v1.1.0
+## 2. Novedades v1.3.0
 
-- **Guiado por voz propio** (con **pantalla encendida**): ⇪ -> *Guiar aquí con voz*. Habla los cruces en tu idioma.
-- **Voz con pantalla apagada / en el bolsillo** -> handoff a **OsmAnd** con un toque (*Compartir* nativo del móvil). *Una PWA no puede dar voz fiable en segundo plano; OsmAnd sí.*
-- **Pantalla siempre encendida** (Wake Lock) durante el seguimiento, con interruptor para desactivarla (ajustes ⚙).
-- **Tema claro / oscuro / sistema** y diseño optimizado para móvil.
-- **Historial persistente** con dos pestañas: **Planificadas** (★) y **Realizadas** (✓). Ver, navegar o borrar.
-- **Versión visible** (⚙) y **actualizaciones que NO borran tus datos** (tus rutas viven en el dispositivo; el actualizador solo cambia archivos de la app).
-- **Copia de seguridad** export/import (JSON) y **almacenamiento persistente** solicitado al navegador.
-- **Descarga de zona offline** (▣ -> *Descargar esta zona*) para los tiles visibles.
-
-### Datos que guarda cada ruta
-- **Planificadas:** distancia, tiempo estimado, **curvas/km**, nivel de diversión, fecha y trazado.
-- **Realizadas:** distancia, duración, velocidad **media** y **máxima**, **curvas/km**, fecha y track GPS.
+- **Mapa que rota en sentido de marcha** durante el guiado (estilo navegador, "heading-up"), con la flecha del piloto siempre apuntando arriba. Se puede desactivar en ⚙.
+- **Velocidad en grande** durante la ruta (badge inferior izquierdo).
+- **Generador de rutas circulares rediseñado:** el origen queda en el perímetro y se reparten varios puntos para formar un bucle real (sin ida y vuelta por la misma carretera), con **calibración de distancia** (acierta la distancia pedida con ~6-8% de margen) y reintentos por varias direcciones.
+- **Perfiles afinados como los trazaría un motero rutero:** menos "rat-running" por urbanizaciones, conectores con sentido y giros más naturales (penalización de giro), evitando recorridos extraños.
 
 ---
 
