@@ -1,4 +1,4 @@
-# CurvaGo 🏍️ — Carreteras con curvas · v1.1.0
+# CurvaGo 🏍️ — Carreteras con curvas · v1.2.0
 
 Planificador de rutas **con curvas para moto**, en un único HTML, para móvil y sin instalación.
 Genera rutas y **vueltas circulares desde tu posición**, las puntúa por diversión, te **guía con
@@ -41,19 +41,20 @@ así OsmAnd anuncia los cruces reales por voz siguiendo **tu línea exacta**.
 
 ---
 
-## 3. Cómo se usa
+## 3. Cómo se usa (flujo nuevo v1.2.0)
 
-1. **Inicio/destino:** toca el mapa, o **◎** para tu GPS.
-2. **Nivel:** Rápida · Divertida · Sinuosa · Extrema.
-3. **Circular (↻):** distancia (60-220 km) + dirección (o *Sorpréndeme*), desde tu posición.
-4. **Trazar** -> distancia, tiempo y curvas (dial).
-5. **⇪ Navegar / guardar:**
-   - *Guiar aquí con voz* (pantalla encendida).
-   - *OsmAnd* -> comparte el GPX -> en OsmAnd: *Seguir track* (voz con pantalla apagada).
-   - *Google Maps* (cómodo pero aproximado).
-   - *★ Guardar esta ruta* -> va a **Planificadas**.
-   - *≣ Mis rutas* -> historial.
-6. **▶ Grabar:** registra tu ruta real -> se guarda en **Realizadas**.
+1. Pulsa **＋ Generar ruta**. Se abre el asistente:
+   - **Tipo de recorrido:** Circular · Ida y vuelta · Solo ida.
+   - **Origen:** Mi ubicación (GPS) · Elegir en el mapa.
+   - **Distancia** (si es circular) o **Destino** (si es ida y vuelta / solo ida).
+   - **Tipo de ruta:** Rápida · Curvas · Sinuosa · Máxima diversión.
+2. Pulsa **Generar** -> se traza la ruta y aparece el resumen (km · tiempo · curvas).
+3. Pulsa **▶ Iniciar guiado** -> tarjeta grande de giros con voz (pantalla encendida).
+   O bien **OsmAnd (voz)** para guiado con pantalla apagada, **Google Maps**, **★ Guardar** o **↺ Nueva ruta**.
+4. **● Grabar ruta libre** (pantalla de inicio): registra un trayecto sin ruta previa.
+5. **≣ Mis rutas:** historial de **Planificadas** y **Realizadas**.
+6. **⚙ Ajustes:** idioma (ES/EN), tema (claro/oscuro/sistema), mapa, descargar zona offline,
+   mantener pantalla encendida, voz, copia de seguridad, versión y actualización.
 
 ---
 

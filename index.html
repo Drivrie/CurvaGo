@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>CurvaGo — Carreteras con curvas</title>
-<meta name="description" content="Planificador de rutas con curvas para moto. Rutas y vueltas circulares, guiado por voz, historial. Datos de OpenStreetMap.">
+<meta name="description" content="Planificador de rutas con curvas para moto. Genera rutas circulares o a destino, guíate con voz y guarda tu historial.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,246 +15,267 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
   :root{
     --bg:#0e1116; --panel:#161b22; --panel-2:#1d2530; --line:#2a3340;
-    --ink:#e8edf2; --ink-dim:#8b97a6; --ink-faint:#5c6675;
-    --ignite:#ff7a18; --ignite-soft:#ff9d4d; --cool:#3ea6ff; --good:#36d399; --shadow:rgba(0,0,0,.5);
+    --ink:#eef2f7; --ink-dim:#9aa6b4; --ink-faint:#6b7686;
+    --ignite:#ff7a18; --ignite-soft:#ff9d4d; --cool:#3ea6ff; --good:#36d399; --shadow:rgba(0,0,0,.55);
   }
   [data-theme="light"]{
-    --bg:#eef1f5; --panel:#ffffff; --panel-2:#f1f4f9; --line:#d6dde6;
-    --ink:#161b22; --ink-dim:#566173; --ink-faint:#8a96a6; --shadow:rgba(40,60,90,.18);
+    --bg:#eef1f5; --panel:#ffffff; --panel-2:#eef2f8; --line:#cfd8e3;
+    --ink:#10151c; --ink-dim:#475467; --ink-faint:#7a8696; --shadow:rgba(40,60,90,.18);
   }
-  @media (prefers-color-scheme: light){
-    [data-theme="system"]{
-      --bg:#eef1f5; --panel:#ffffff; --panel-2:#f1f4f9; --line:#d6dde6;
-      --ink:#161b22; --ink-dim:#566173; --ink-faint:#8a96a6; --shadow:rgba(40,60,90,.18);
-    }
-  }
+  @media (prefers-color-scheme: light){[data-theme="system"]{
+    --bg:#eef1f5; --panel:#ffffff; --panel-2:#eef2f8; --line:#cfd8e3;
+    --ink:#10151c; --ink-dim:#475467; --ink-faint:#7a8696; --shadow:rgba(40,60,90,.18);}}
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{height:100%; margin:0}
   body{font-family:Inter,system-ui,sans-serif; background:var(--bg); color:var(--ink);
-    overflow:hidden; position:fixed; inset:0}
+    overflow:hidden; position:fixed; inset:0; font-size:16px; -webkit-text-size-adjust:100%}
   #map{position:absolute; inset:0; background:var(--bg); z-index:1}
-  .leaflet-container{background:var(--bg)}
-  .leaflet-control-attribution{font-size:9px; background:color-mix(in srgb,var(--bg) 70%,transparent); color:var(--ink-dim)}
+  .leaflet-container{background:var(--bg); font-size:13px}
+  .leaflet-control-attribution{font-size:10px; background:color-mix(in srgb,var(--bg) 72%,transparent); color:var(--ink-dim)}
   .leaflet-control-attribution a{color:var(--cool)}
-  .leaflet-bar a{background:var(--panel)!important;color:var(--ink)!important;border-color:var(--line)!important}
+  .leaflet-bar a{background:var(--panel)!important;color:var(--ink)!important;border-color:var(--line)!important;width:34px!important;height:34px!important;line-height:34px!important;font-size:20px!important}
 
-  .readout{position:absolute; top:0; left:0; right:0; z-index:600;
-    padding:calc(env(safe-area-inset-top) + 8px) 12px 10px;
-    background:linear-gradient(180deg, color-mix(in srgb,var(--bg) 96%,transparent) 60%, transparent);
-    display:flex; align-items:flex-end; gap:8px; pointer-events:none}
-  .brand{font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:.5px;
-    font-size:20px; line-height:1; pointer-events:auto; white-space:nowrap}
+  /* Header */
+  .top{position:absolute; top:0; left:0; right:0; z-index:600; pointer-events:none;
+    padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;
+    display:flex; align-items:center; gap:10px;
+    background:linear-gradient(180deg, color-mix(in srgb,var(--bg) 92%,transparent) 55%, transparent)}
+  .brand{font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:.5px; font-size:26px; line-height:1; pointer-events:auto}
   .brand b{color:var(--ignite)}
-  .gear{pointer-events:auto; width:30px;height:30px;border:1px solid var(--line);border-radius:9px;
-    background:color-mix(in srgb,var(--panel) 90%,transparent); color:var(--ink-dim); font-size:15px;
-    display:grid;place-items:center; cursor:pointer; position:relative}
-  .gear .dot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--ignite);display:none}
+  .gear{pointer-events:auto; width:42px;height:42px;border:1px solid var(--line);border-radius:12px;
+    background:color-mix(in srgb,var(--panel) 92%,transparent); color:var(--ink-dim); font-size:20px;
+    display:grid;place-items:center; cursor:pointer; position:relative; margin-left:auto}
+  .gear .dot{position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:var(--ignite);display:none}
   .gear.upd .dot{display:block}
-  .gauges{display:flex; gap:13px; margin-left:auto; pointer-events:auto}
-  .gauge{text-align:right; min-width:48px}
-  .gauge .v{font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:22px; line-height:1}
-  .gauge .l{font-size:9px; letter-spacing:1.3px; text-transform:uppercase; color:var(--ink-faint)}
-  .gauge .v small{font-size:12px; color:var(--ink-dim); font-weight:600}
-  #gTwist .v{color:var(--ignite-soft)}
-  .dial{width:40px; height:40px; pointer-events:auto}
-  .dbg{stroke:var(--line)} #dialArc{stroke:var(--ignite)}
 
-  .rail{position:absolute; z-index:600; left:10px; top:50%; transform:translateY(-50%);
-    display:flex; flex-direction:column; gap:8px}
-  .rbtn{width:46px; height:46px; border-radius:12px; border:1px solid var(--line);
-    background:color-mix(in srgb,var(--panel) 90%,transparent); color:var(--ink-dim); display:grid; place-items:center;
-    backdrop-filter:blur(6px); cursor:pointer; font-size:20px}
-  .rbtn:active{transform:scale(.94)}
-  .rbtn.gps.live{border-color:var(--cool); color:var(--cool); animation:pulse 1.4s infinite}
-  .rbtn.on{border-color:var(--ignite); color:var(--ignite)}
-  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(62,166,255,.4)}50%{box-shadow:0 0 0 7px rgba(62,166,255,0)}}
+  /* Big guidance card (riding) */
+  .nav{position:absolute;left:0;right:0;top:0;z-index:680;display:none;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 16px;
+    background:linear-gradient(180deg,var(--ignite),color-mix(in srgb,var(--ignite) 72%,#000));color:#1a0f04}
+  .nav.on{display:block}
+  .nav .row{display:flex;align-items:center;gap:14px}
+  .nav .ic{font-size:62px;font-weight:800;line-height:.9;min-width:64px;text-align:center}
+  .nav .tx{font-weight:800;font-size:25px;line-height:1.05}
+  .nav .tx span{display:block;font-weight:700;font-size:18px;opacity:.85;margin-top:2px}
+  .nav .x{margin-left:auto;background:rgba(0,0,0,.2);border:none;color:#1a0f04;width:46px;height:46px;border-radius:12px;font-size:18px;cursor:pointer;align-self:flex-start}
+  .nav .spd{margin-top:10px;font-weight:800;font-size:16px;opacity:.9}
 
-  .navbar{position:absolute;left:0;right:0;top:0;z-index:650;display:none;
-    padding:calc(env(safe-area-inset-top) + 8px) 14px 12px;
-    background:linear-gradient(180deg,var(--ignite),color-mix(in srgb,var(--ignite) 70%,#000));
-    color:#1a0f04;align-items:center;gap:12px}
-  .navbar.on{display:flex}
-  .navbar .ic{font-size:30px;font-weight:800}
-  .navbar .tx{font-weight:700;font-size:16px;line-height:1.15}
-  .navbar .tx span{display:block;font-weight:600;font-size:12px;opacity:.8}
-  .navbar .x{margin-left:auto;background:rgba(0,0,0,.18);border:none;color:#1a0f04;width:36px;height:36px;border-radius:9px;font-size:16px;cursor:pointer}
+  /* Floating recenter */
+  .fab{position:absolute; z-index:600; right:14px; bottom:calc(var(--ph,150px) + 14px);
+    width:50px;height:50px;border-radius:14px;border:1px solid var(--line);
+    background:color-mix(in srgb,var(--panel) 92%,transparent); color:var(--ink-dim);
+    display:grid;place-items:center;font-size:22px;cursor:pointer;backdrop-filter:blur(6px)}
+  .fab.gps.live{border-color:var(--cool);color:var(--cool)}
 
-  .sheet{position:absolute; left:0; right:0; bottom:0; z-index:700; background:var(--panel);
-    border-top:1px solid var(--line); border-radius:18px 18px 0 0;
-    padding:8px 14px calc(env(safe-area-inset-bottom) + 12px);
-    box-shadow:0 -10px 40px var(--shadow); transition:transform .25s ease}
-  .sheet.collapsed{transform:translateY(calc(100% - 104px))}
-  .grip{width:40px; height:4px; border-radius:99px; background:var(--line); margin:4px auto 10px}
-  .mode-row{display:flex; gap:6px; margin-bottom:10px}
-  .chip{flex:1; padding:8px 3px; border-radius:11px; border:1px solid var(--line);
-    background:var(--panel-2); color:var(--ink-dim); text-align:center; cursor:pointer; font-size:12px; font-weight:600; line-height:1.15}
-  .chip small{display:block; font-size:8.5px; color:var(--ink-faint); font-weight:500; margin-top:2px}
-  .chip.on{border-color:var(--ignite); color:var(--ink); background:color-mix(in srgb,var(--ignite) 14%,transparent)}
-  .chip.on small{color:var(--ignite-soft)}
-  .actions{display:flex; gap:8px; align-items:center}
-  .btn{flex:1; padding:13px; border-radius:12px; border:none; font-weight:700; font-size:14px; cursor:pointer; font-family:Inter,sans-serif}
-  .btn-go{background:var(--ignite); color:#1a0f04}
-  .btn-go:active{background:var(--ignite-soft)}
-  .btn-go:disabled{opacity:.45}
-  .btn-ghost{flex:0 0 auto; width:48px; background:var(--panel-2); color:var(--ink); border:1px solid var(--line); font-size:18px}
-  .hint{font-size:11px; color:var(--ink-faint); text-align:center; margin:8px 0 2px; min-height:14px}
-  .hint b{color:var(--ink-dim)}
+  /* Bottom panel */
+  .panel{position:absolute; left:0; right:0; bottom:0; z-index:700; background:var(--panel);
+    border-top:1px solid var(--line); border-radius:20px 20px 0 0;
+    padding:6px 16px calc(env(safe-area-inset-bottom) + 14px);
+    box-shadow:0 -12px 44px var(--shadow); max-height:82vh; overflow:auto; -webkit-overflow-scrolling:touch}
+  .grip{width:46px; height:5px; border-radius:99px; background:var(--line); margin:6px auto 12px}
 
-  .tabs{display:none; gap:6px; margin:8px 0 2px}
-  .tabs.on{display:flex}
-  .tabs button{flex:1;padding:7px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);
-    color:var(--ink-dim);font-size:12px;font-weight:600;cursor:pointer}
-  .tabs button.on{border-color:var(--ignite);color:var(--ink);background:color-mix(in srgb,var(--ignite) 12%,transparent)}
-  .list{max-height:34vh; overflow:auto; margin-top:6px; -webkit-overflow-scrolling:touch}
-  .item{display:flex; gap:10px; align-items:center; padding:9px 6px; border-bottom:1px solid var(--line)}
-  .item .ic{width:30px; height:30px; flex:0 0 auto; border-radius:8px; background:var(--panel-2); display:grid; place-items:center; font-size:15px; color:var(--ignite-soft)}
-  .item .tx{flex:1; font-size:13px; line-height:1.25; min-width:0}
-  .item .tx b{font-weight:600}
-  .item .tx span{color:var(--ink-faint); font-size:11px; display:block}
-  .item .act{display:flex; gap:4px}
-  .item .act button{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);
-    width:30px;height:30px;border-radius:8px;font-size:13px;cursor:pointer}
+  .big{width:100%; border:none; border-radius:16px; font-weight:800; font-size:18px; padding:18px; cursor:pointer; font-family:Inter,sans-serif; line-height:1.1}
+  .big.primary{background:var(--ignite); color:#1a0f04}
+  .big.primary:active{background:var(--ignite-soft)}
+  .big.ghost{background:var(--panel-2); color:var(--ink); border:1px solid var(--line)}
+  .big+.big{margin-top:10px}
 
+  .seclabel{font-size:13px;font-weight:700;letter-spacing:.4px;color:var(--ink-dim);text-transform:uppercase;margin:14px 2px 8px}
+  .wtitle{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:24px;margin:2px 2px 4px}
+  .opts{display:flex;gap:8px}
+  .opts.col{flex-direction:column}
+  .opts.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .opt{flex:1;min-height:52px;border:1.5px solid var(--line);background:var(--panel-2);color:var(--ink);
+    border-radius:13px;font-size:15px;font-weight:700;cursor:pointer;padding:8px 6px;line-height:1.15;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+  .opt small{font-size:11px;font-weight:600;color:var(--ink-faint)}
+  .opt.on{border-color:var(--ignite);background:color-mix(in srgb,var(--ignite) 16%,transparent);color:var(--ink)}
+  .opt.on small{color:var(--ignite-soft)}
+  .wactions{display:flex;gap:10px;margin-top:16px}
+  .wactions .big{margin-top:0}
+  .whint{font-size:12.5px;color:var(--ink-faint);text-align:center;margin-top:10px;min-height:16px}
+  .whint b{color:var(--cool)}
+
+  /* Result summary */
+  .rsum{display:flex;gap:8px;margin:6px 0 14px}
+  .stat{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:12px 6px;text-align:center}
+  .stat .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:30px;line-height:1}
+  .stat .v small{font-size:15px;color:var(--ink-dim)}
+  .stat .l{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-faint);margin-top:3px}
+  .stat.tw .v{color:var(--ignite-soft)}
+  .ractions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .ractions button{min-height:50px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:13px;font-size:14px;font-weight:700;cursor:pointer}
+  .ractions button.wide{grid-column:1 / -1}
+
+  /* Library */
+  .tabs{display:flex;gap:8px;margin:6px 0 4px}
+  .tabs button{flex:1;min-height:44px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink-dim);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer}
+  .tabs button.on{border-color:var(--ignite);color:var(--ink);background:color-mix(in srgb,var(--ignite) 13%,transparent)}
+  .list{max-height:52vh;overflow:auto;-webkit-overflow-scrolling:touch;margin-top:6px}
+  .item{display:flex;gap:12px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line)}
+  .item .ic{width:38px;height:38px;flex:0 0 auto;border-radius:11px;background:var(--panel-2);display:grid;place-items:center;font-size:18px;color:var(--ignite-soft)}
+  .item .tx{flex:1;min-width:0;font-size:15px}
+  .item .tx b{font-weight:700}
+  .item .tx span{display:block;color:var(--ink-faint);font-size:12px;margin-top:2px}
+  .item .act{display:flex;gap:6px}
+  .item .act button{width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink-dim);font-size:15px;cursor:pointer}
+
+  /* Settings menu */
   .menu{position:absolute; z-index:900; background:var(--panel); border:1px solid var(--line);
-    border-radius:12px; padding:8px; box-shadow:0 12px 40px var(--shadow); display:none; max-width:280px; min-width:230px}
+    border-radius:14px; padding:10px; box-shadow:0 14px 44px var(--shadow); display:none; width:min(320px,92vw); right:14px; top:calc(env(safe-area-inset-top) + 60px)}
   .menu.open{display:block}
-  .menu h4{margin:6px 6px 8px; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint)}
-  .menu button.mi{display:block; width:100%; text-align:left; background:none; border:none; color:var(--ink); padding:10px 8px; border-radius:8px; font-size:13px; cursor:pointer}
-  .menu button.mi:active{background:var(--panel-2)}
-  .menu .row{display:flex; gap:6px; flex-wrap:wrap; padding:0 4px}
-  .menu .row button{flex:1; text-align:center; border:1px solid var(--line); min-width:50px; background:var(--panel-2); color:var(--ink); padding:9px 4px; border-radius:8px; font-size:12px; cursor:pointer; font-weight:600}
-  .menu .row button.sel{border-color:var(--ignite); color:var(--ink); background:color-mix(in srgb,var(--ignite) 14%,transparent)}
-  .menu .note{font-size:10.5px; color:var(--ink-faint); padding:6px 8px 2px; line-height:1.35}
-  .seg{display:flex;align-items:center;justify-content:space-between;padding:8px}
-  .seg label{font-size:13px}
-  .sw{width:42px;height:24px;border-radius:99px;background:var(--line);position:relative;cursor:pointer;transition:.2s;flex:0 0 auto}
+  .menu h4{margin:8px 4px 8px; font-size:12px; letter-spacing:.6px; text-transform:uppercase; color:var(--ink-faint)}
+  .menu .row{display:flex;gap:8px;flex-wrap:wrap}
+  .menu .row button{flex:1;min-height:46px;min-width:60px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:11px;font-size:14px;font-weight:700;cursor:pointer}
+  .menu .row button.sel{border-color:var(--ignite);background:color-mix(in srgb,var(--ignite) 15%,transparent)}
+  .menu .mi{display:block;width:100%;text-align:left;background:none;border:none;color:var(--ink);padding:13px 8px;border-radius:10px;font-size:15px;cursor:pointer}
+  .menu .mi:active{background:var(--panel-2)}
+  .seg{display:flex;align-items:center;justify-content:space-between;padding:11px 8px}
+  .seg label{font-size:15px}
+  .sw{width:48px;height:28px;border-radius:99px;background:var(--line);position:relative;cursor:pointer;transition:.2s;flex:0 0 auto}
   .sw.on{background:var(--ignite)}
-  .sw::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
-  .sw.on::after{left:20px}
-  .ver{font-size:10.5px;color:var(--ink-faint);text-align:center;padding:8px 0 2px}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s}
+  .sw.on::after{left:23px}
+  .ver{font-size:12px;color:var(--ink-faint);text-align:center;padding:10px 0 2px}
+  .note{font-size:12px;color:var(--ink-faint);padding:6px 8px;line-height:1.4}
+  .prog{height:7px;border-radius:99px;background:var(--line);margin:8px 4px;overflow:hidden;display:none}
+  .prog.on{display:block}.prog>i{display:block;height:100%;width:0;background:var(--ignite);transition:width .2s}
 
-  .prog{height:6px;border-radius:99px;background:var(--line);margin:6px 4px;overflow:hidden;display:none}
-  .prog.on{display:block}
-  .prog>i{display:block;height:100%;width:0;background:var(--ignite);transition:width .2s}
-
-  .toast{position:absolute; left:50%; bottom:130px; transform:translateX(-50%) translateY(20px);
-    z-index:1000; background:var(--panel); border:1px solid var(--line); color:var(--ink);
-    padding:10px 16px; border-radius:11px; font-size:13px; opacity:0; transition:.25s; pointer-events:none; max-width:86vw; text-align:center; box-shadow:0 8px 30px var(--shadow)}
-  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  .toast{position:absolute;left:50%;bottom:calc(var(--ph,150px) + 24px);transform:translateX(-50%) translateY(16px);
+    z-index:1000;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:12px 18px;border-radius:13px;font-size:14.5px;opacity:0;transition:.25s;pointer-events:none;max-width:88vw;text-align:center;box-shadow:0 8px 30px var(--shadow)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .leaflet-marker-icon.wp{filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
   input[type=file]{display:none}
-  .spin{width:15px;height:15px;border:2px solid #1a0f04;border-top-color:transparent;border-radius:50%;display:inline-block;animation:sp .7s linear infinite;vertical-align:-2px}
+  .spin{width:16px;height:16px;border:2px solid #1a0f04;border-top-color:transparent;border-radius:50%;display:inline-block;animation:sp .7s linear infinite;vertical-align:-3px;margin-right:4px}
   @keyframes sp{to{transform:rotate(360deg)}}
+  [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <div id="map"></div>
 
-<div class="navbar" id="navbar">
-  <div class="ic" id="nvIc">↑</div>
-  <div class="tx" id="nvTx">—<span id="nvSub"></span></div>
-  <button class="x" id="nvStop">■</button>
+<!-- Big riding guidance card -->
+<div class="nav" id="nav">
+  <div class="row">
+    <div class="ic" id="nvIc">↑</div>
+    <div class="tx" id="nvTx">—<span id="nvSub"></span></div>
+    <button class="x" id="nvStop">■</button>
+  </div>
+  <div class="spd" id="nvSpd"></div>
 </div>
 
-<div class="readout">
+<!-- Header -->
+<div class="top">
   <div class="brand">Curva<b>Go</b></div>
   <div class="gear" id="gearBtn">⚙<span class="dot"></span></div>
-  <svg class="dial" viewBox="0 0 42 42" id="dial">
-    <circle class="dbg" cx="21" cy="21" r="17" fill="none" stroke-width="4"/>
-    <circle id="dialArc" cx="21" cy="21" r="17" fill="none" stroke-width="4" stroke-linecap="round" stroke-dasharray="0 200" transform="rotate(-90 21 21)"/>
-  </svg>
-  <div class="gauges">
-    <div class="gauge"><div class="v" id="gDist">—</div><div class="l">km</div></div>
-    <div class="gauge"><div class="v" id="gTime">—</div><div class="l" data-i18n="gTime">tiempo</div></div>
-    <div class="gauge" id="gTwist"><div class="v">—</div><div class="l" data-i18n="gTwist">curvas</div></div>
-  </div>
 </div>
 
-<div class="rail">
-  <div class="rbtn gps" id="btnGps" title="Mi ubicación">◎</div>
-  <div class="rbtn" id="btnLayers" title="Mapa">▣</div>
-  <div class="rbtn" id="btnLoop" title="Ruta circular">↻</div>
-  <div class="rbtn" id="btnRide" title="Grabar ruta">▶</div>
-</div>
+<div class="fab gps" id="btnGps" title="Centrar">◎</div>
 
-<div class="sheet" id="sheet">
+<!-- Bottom panel -->
+<div class="panel" id="panel">
   <div class="grip" id="grip"></div>
-  <div class="mode-row" id="modeRow">
-    <div class="chip" data-mode="rapida"><span data-i18n="m_rapida">Rápida</span><small data-i18n="m_rapida_s">directo</small></div>
-    <div class="chip" data-mode="divertida"><span data-i18n="m_divertida">Divertida</span><small data-i18n="m_divertida_s">rápido+curvas</small></div>
-    <div class="chip on" data-mode="sinuosa"><span data-i18n="m_sinuosa">Sinuosa</span><small data-i18n="m_sinuosa_s">curvas</small></div>
-    <div class="chip" data-mode="extrema"><span data-i18n="m_extrema">Extrema</span><small data-i18n="m_extrema_s">máx. diversión</small></div>
-  </div>
-  <div class="actions">
-    <button class="btn-ghost btn" id="btnClear" title="Borrar">✕</button>
-    <button class="btn btn-go" id="btnRoute" disabled data-i18n="r_setstart">Toca el mapa para el inicio</button>
-    <button class="btn-ghost btn" id="btnExport" title="Navegar / guardar">⇪</button>
-  </div>
-  <div class="hint" id="hint" data-i18n="hint_start">Toca para el <b>inicio</b> → de nuevo para <b>destinos</b> → la ruta busca curvas.</div>
-  <div class="tabs" id="libTabs">
-    <button data-tab="plan" class="on" data-i18n="tab_plan">Planificadas</button>
-    <button data-tab="done" data-i18n="tab_done">Realizadas</button>
-  </div>
-  <div class="list" id="list"></div>
-</div>
 
-<!-- Map / offline -->
-<div class="menu" id="layersMenu">
-  <h4 data-i18n="map_style">Estilo de mapa</h4>
-  <button class="mi" data-layer="cyclosm" data-i18n="map_cyclosm">Relieve · CyclOSM</button>
-  <button class="mi" data-layer="osm" data-i18n="map_osm">OSM estándar</button>
-  <button class="mi" data-layer="topo" data-i18n="map_topo">OpenTopoMap</button>
-  <h4 style="margin-top:8px" data-i18n="off_title">Offline</h4>
-  <button class="mi" id="dlArea" data-i18n="off_dl">⤓ Descargar esta zona</button>
-  <div class="prog" id="dlProg"><i></i></div>
-  <div class="note" id="offNote" data-i18n="off_note">Guarda los tiles visibles (zona pequeña) para uso sin cobertura. Para mapas offline completos, usa OsmAnd.</div>
-</div>
-
-<!-- Round trip -->
-<div class="menu" id="loopMenu">
-  <h4 data-i18n="loop_title">Ruta circular desde tu posición</h4>
-  <div class="row" style="margin-bottom:6px">
-    <button data-km="60">60 km</button><button data-km="100">100 km</button>
-    <button data-km="150">150 km</button><button data-km="220">220 km</button>
+  <!-- IDLE -->
+  <div class="screen" id="scIdle">
+    <button class="big primary" id="goGenerate" data-i18n="gen_route">＋ Generar ruta</button>
+    <button class="big ghost" id="goLibrary" data-i18n="my_rides">≣ Mis rutas</button>
+    <button class="big ghost" id="goFreeRide" data-i18n="free_ride">● Grabar ruta libre</button>
   </div>
-  <h4 style="margin-top:8px" data-i18n="loop_dir">Dirección</h4>
-  <div class="row">
-    <button data-dir="0">N</button><button data-dir="90">E</button>
-    <button data-dir="180">S</button><button data-dir="270">O</button>
-    <button data-dir="-1" data-i18n="loop_rand">⤿ Sorpréndeme</button>
-  </div>
-  <div class="note" data-i18n="loop_note">Usa el nivel de diversión seleccionado arriba.</div>
-</div>
 
-<!-- Navigate / save -->
-<div class="menu" id="exportMenu">
-  <h4 data-i18n="nav_title">Guiado por voz</h4>
-  <button class="mi" id="guideHere" data-i18n="nav_here">▶ Guiar aquí con voz (pantalla encendida)</button>
-  <button class="mi" id="navOsm" data-i18n="nav_osm">▶ OsmAnd · voz con pantalla apagada (GPX) ★</button>
-  <button class="mi" id="navG" data-i18n="nav_g">▶ Google Maps · app (aprox.)</button>
-  <button class="mi" id="navGb" data-i18n="nav_gb">▶ Google Maps · navegador (3 pts)</button>
-  <div class="note" data-i18n="nav_note">CurvaGo guía con voz solo con pantalla encendida. Para el bolsillo, usa OsmAnd. Google Maps recalcula entre puntos.</div>
-  <h4 style="margin-top:8px" data-i18n="file_title">Ruta</h4>
-  <button class="mi" id="saveRoute" data-i18n="file_save">★ Guardar esta ruta</button>
-  <button class="mi" id="doImport" data-i18n="file_import">⤒ Importar GPX…</button>
-  <button class="mi" id="doLib" data-i18n="file_lib">≣ Mis rutas (historial)</button>
+  <!-- WIZARD -->
+  <div class="screen" id="scWizard" hidden>
+    <div class="wtitle" data-i18n="w_title">Nueva ruta</div>
+
+    <div class="seclabel" data-i18n="w_trip">Tipo de recorrido</div>
+    <div class="opts" id="optTrip">
+      <button class="opt on" data-trip="circular" data-i18n="trip_circular">⭮ Circular</button>
+      <button class="opt" data-trip="round" data-i18n="trip_round">⇄ Ida y vuelta</button>
+      <button class="opt" data-trip="oneway" data-i18n="trip_oneway">→ Solo ida</button>
+    </div>
+
+    <div class="seclabel" data-i18n="w_origin">Origen</div>
+    <div class="opts" id="optOrigin">
+      <button class="opt on" data-origin="gps" data-i18n="or_gps">📍 Mi ubicación</button>
+      <button class="opt" data-origin="map" data-i18n="or_map">🗺 Elegir en el mapa</button>
+    </div>
+
+    <div id="distBlock">
+      <div class="seclabel" data-i18n="w_dist">Distancia a recorrer</div>
+      <div class="opts" id="optDist">
+        <button class="opt" data-km="50">50<small>km</small></button>
+        <button class="opt on" data-km="100">100<small>km</small></button>
+        <button class="opt" data-km="150">150<small>km</small></button>
+        <button class="opt" data-km="200">200<small>km</small></button>
+      </div>
+    </div>
+
+    <div id="destBlock" hidden>
+      <div class="seclabel" data-i18n="w_dest">Destino</div>
+      <div class="opts"><button class="opt" id="pickDest" data-i18n="de_map">🗺 Elegir destino en el mapa</button></div>
+    </div>
+
+    <div class="seclabel" data-i18n="w_level">Tipo de ruta</div>
+    <div class="opts grid2" id="optLevel">
+      <button class="opt" data-level="rapida" data-i18n="lvl_rapida">Rápida</button>
+      <button class="opt" data-level="divertida" data-i18n="lvl_curvas">Curvas</button>
+      <button class="opt on" data-level="sinuosa" data-i18n="lvl_sinuosa">Sinuosa</button>
+      <button class="opt" data-level="extrema" data-i18n="lvl_extrema">Máxima diversión</button>
+    </div>
+
+    <div class="wactions">
+      <button class="big ghost" id="wCancel" data-i18n="w_cancel">Cancelar</button>
+      <button class="big primary" id="wGenerate" data-i18n="w_generate">Generar</button>
+    </div>
+    <div class="whint" id="wHint"></div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="screen" id="scResult" hidden>
+    <div class="rsum">
+      <div class="stat"><div class="v" id="sDist">—</div><div class="l">km</div></div>
+      <div class="stat"><div class="v" id="sTime">—</div><div class="l" data-i18n="sum_time">tiempo</div></div>
+      <div class="stat tw"><div class="v" id="sTwist">—</div><div class="l" data-i18n="sum_twist">curvas</div></div>
+    </div>
+    <button class="big primary" id="startBtn" data-i18n="res_start">▶ Iniciar guiado</button>
+    <div class="ractions">
+      <button id="rOsm" data-i18n="res_osm">🔊 OsmAnd (voz)</button>
+      <button id="rGmaps" data-i18n="res_gmaps">Google Maps</button>
+      <button id="rSave" data-i18n="res_save">★ Guardar ruta</button>
+      <button id="rNew" data-i18n="res_new">↺ Nueva ruta</button>
+    </div>
+  </div>
+
+  <!-- LIBRARY -->
+  <div class="screen" id="scLib" hidden>
+    <div class="tabs">
+      <button data-tab="plan" class="on" data-i18n="tab_plan">Planificadas</button>
+      <button data-tab="done" data-i18n="tab_done">Realizadas</button>
+    </div>
+    <div class="list" id="list"></div>
+    <button class="big ghost" id="libBack" data-i18n="back" style="margin-top:10px">← Volver</button>
+  </div>
 </div>
 
 <!-- Settings -->
 <div class="menu" id="setMenu">
   <h4 data-i18n="set_lang">Idioma</h4>
   <div class="row"><button data-lang="es">Español</button><button data-lang="en">English</button></div>
-  <h4 style="margin-top:8px" data-i18n="set_theme">Tema</h4>
+  <h4 data-i18n="set_theme">Tema</h4>
   <div class="row"><button data-theme="system" data-i18n="th_sys">Sistema</button><button data-theme="light" data-i18n="th_light">Claro</button><button data-theme="dark" data-i18n="th_dark">Oscuro</button></div>
-  <h4 style="margin-top:8px" data-i18n="set_opt">Opciones</h4>
+  <h4 data-i18n="set_map">Mapa</h4>
+  <div class="row"><button data-layer="cyclosm">CyclOSM</button><button data-layer="osm">OSM</button><button data-layer="topo">Topo</button></div>
+  <button class="mi" id="dlArea" data-i18n="off_dl">⤓ Descargar esta zona (offline)</button>
+  <div class="prog" id="dlProg"><i></i></div>
+  <h4 data-i18n="set_opt">Opciones</h4>
   <div class="seg"><label data-i18n="set_wake">Mantener pantalla encendida</label><div class="sw" id="swWake"></div></div>
   <div class="seg"><label data-i18n="set_voice">Voz de guiado</label><div class="sw" id="swVoice"></div></div>
-  <h4 style="margin-top:8px" data-i18n="set_data">Datos</h4>
+  <h4 data-i18n="set_data">Datos</h4>
   <button class="mi" id="backupExport" data-i18n="set_backup">⤓ Exportar copia de seguridad</button>
   <button class="mi" id="backupImport" data-i18n="set_restore">⤒ Restaurar copia</button>
   <div class="note" id="persistNote"></div>
@@ -268,106 +289,94 @@
 
 <script>
 /* ===========================================================================
-   CurvaGo v1.1.0 — planificador de carreteras con curvas para moto
-   Enrutado: BRouter (OpenStreetMap). Voz (pantalla encendida) propia; voz con
-   pantalla apagada vía OsmAnd. Tema claro/oscuro/sistema. Historial persistente.
+   CurvaGo v1.2.0 — flujo guiado (Generar ruta → asistente → Iniciar).
    =========================================================================== */
-const APP_VERSION = '1.1.0';
-const BR = "https://brouter.de/brouter";
+const APP_VERSION='1.2.0';
+const BR="https://brouter.de/brouter";
 const $=s=>document.querySelector(s);
 
 /* ---------- i18n ---------- */
-const I18N = {
- es:{gTime:"tiempo",gTwist:"curvas",
-  m_rapida:"Rápida",m_rapida_s:"directo",m_divertida:"Divertida",m_divertida_s:"rápido+curvas",
-  m_sinuosa:"Sinuosa",m_sinuosa_s:"curvas",m_extrema:"Extrema",m_extrema_s:"máx. diversión",
-  r_setstart:"Toca el mapa para el inicio",r_setdest:"Toca para añadir destino",r_route:"Trazar {n} puntos",r_calc:"Calculando…",
-  hint_start:"Toca para el <b>inicio</b> → de nuevo para <b>destinos</b> → la ruta busca curvas.",
-  map_style:"Estilo de mapa",map_cyclosm:"Relieve · CyclOSM",map_osm:"OSM estándar",map_topo:"OpenTopoMap",
-  off_title:"Offline",off_dl:"⤓ Descargar esta zona",off_note:"Guarda los tiles visibles (zona pequeña) para uso sin cobertura. Para mapas offline completos, usa OsmAnd.",
-  loop_title:"Ruta circular desde tu posición",loop_dir:"Dirección",loop_rand:"⤿ Sorpréndeme",loop_note:"Usa el nivel de diversión seleccionado arriba.",
-  nav_title:"Guiado por voz",nav_here:"▶ Guiar aquí con voz (pantalla encendida)",nav_osm:"▶ OsmAnd · voz con pantalla apagada (GPX) ★",
-  nav_g:"▶ Google Maps · app (aprox.)",nav_gb:"▶ Google Maps · navegador (3 pts)",
-  nav_note:"CurvaGo guía con voz solo con pantalla encendida. Para el bolsillo, usa OsmAnd. Google Maps recalcula entre puntos.",
-  file_title:"Ruta",file_save:"★ Guardar esta ruta",file_import:"⤒ Importar GPX…",file_lib:"≣ Mis rutas (historial)",
-  tab_plan:"Planificadas",tab_done:"Realizadas",
-  set_lang:"Idioma",set_theme:"Tema",th_sys:"Sistema",th_light:"Claro",th_dark:"Oscuro",
+const I18N={
+ es:{gen_route:"＋ Generar ruta",my_rides:"≣ Mis rutas",free_ride:"● Grabar ruta libre",
+  w_title:"Nueva ruta",w_trip:"Tipo de recorrido",trip_circular:"⭮ Circular",trip_round:"⇄ Ida y vuelta",trip_oneway:"→ Solo ida",
+  w_origin:"Origen",or_gps:"📍 Mi ubicación",or_map:"🗺 Elegir en el mapa",
+  w_dist:"Distancia a recorrer",w_dest:"Destino",de_map:"🗺 Elegir destino en el mapa",
+  w_level:"Tipo de ruta",lvl_rapida:"Rápida",lvl_curvas:"Curvas",lvl_sinuosa:"Sinuosa",lvl_extrema:"Máxima diversión",
+  w_cancel:"Cancelar",w_generate:"Generar",
+  sum_time:"tiempo",sum_twist:"curvas",res_start:"▶ Iniciar guiado",res_osm:"🔊 OsmAnd (voz)",res_gmaps:"Google Maps",res_save:"★ Guardar ruta",res_new:"↺ Nueva ruta",
+  tab_plan:"Planificadas",tab_done:"Realizadas",back:"← Volver",
+  set_lang:"Idioma",set_theme:"Tema",th_sys:"Sistema",th_light:"Claro",th_dark:"Oscuro",set_map:"Mapa",off_dl:"⤓ Descargar esta zona (offline)",
   set_opt:"Opciones",set_wake:"Mantener pantalla encendida",set_voice:"Voz de guiado",
   set_data:"Datos",set_backup:"⤓ Exportar copia de seguridad",set_restore:"⤒ Restaurar copia",set_update:"↻ Buscar actualización",
-  t_calc_first:"Calcula una ruta primero.",t_gpx_ready:"GPX con voz listo. Ábrelo en OsmAnd → Seguir track.",t_gpx_share:"Comparte → OsmAnd → Seguir track.",t_gpx_fail:"No se pudo generar el GPX.",
-  t_gmaps:"Abriendo Google Maps · {n} puntos (curvas aprox.).",t_gmaps_long:"Ruta muy larga para Maps. Usa el GPX de OsmAnd.",
-  t_loop_build:"Creando vuelta de ~{km} km…",t_loop_need:"Pon un inicio o pulsa ◎ primero.",t_route_fail:"Fallo al trazar. Prueba puntos más cercanos u otro nivel.",
-  t_geo_no:"Sin GPS en este dispositivo.",t_geo_block:"GPS bloqueado — actívalo en ajustes.",t_start_loc:"Inicio en tu ubicación.",t_start_again:"Pulsa ◎ otra vez para fijar inicio.",
-  t_cleared:"Borrado.",t_ride_start:"Grabando ruta.",t_ride_saved:"Ruta realizada guardada.",t_ride_stop:"Grabación detenida.",t_gps_lost:"GPS perdido.",
-  t_import:"Importados {n} puntos.",t_import_no:"GPX sin puntos.",t_import_fail:"No se pudo leer el GPX.",t_engine_fb:"Motor de curvas no disponible — usando alternativa.",
-  t_saved:"Ruta guardada en Planificadas.",t_guide_on:"Guiado activo. Mantén la pantalla encendida.",t_guide_need:"Calcula o carga una ruta primero.",t_deleted:"Eliminado.",
-  t_dl_done:"Zona guardada offline ({n} tiles).",t_dl_busy:"Descargando zona…",t_dl_cap:"Acerca el zoom: zona demasiado grande.",t_backup_ok:"Copia exportada.",t_restore_ok:"Copia restaurada.",t_restore_fail:"Archivo no válido.",
-  t_upd_none:"Ya tienes la última versión.",t_upd_ready:"Nueva versión lista — toca para actualizar.",t_persist_on:"Almacenamiento persistente: activo (a salvo de borrados).",t_persist_off:"Almacenamiento persistente: no garantizado.",
-  log_empty_plan:"Sin rutas planificadas. Traza una y pulsa ⇪ → ★ Guardar.",log_empty_done:"Sin rutas realizadas. Pulsa ▶ para grabar.",
-  turn_straight:"Recto — sigue la línea naranja.",turn_preview:"Vista previa de curvas — el guiado por voz habla los cruces.",
-  tn_right:"derecha",tn_left:"izquierda",tn_sharp:"cerrada ",tn_on:" después",
+  h_gps:"Se usará tu ubicación actual como origen.",h_pickorigin:"Toca el mapa para fijar el <b>origen</b>.",h_origin_set:"Origen fijado ✓",
+  h_pickdest:"Toca el mapa para fijar el <b>destino</b>.",h_dest_set:"Destino fijado ✓",h_need_dest:"Falta elegir el destino en el mapa.",
+  t_geo_no:"Sin GPS en este dispositivo.",t_geo_block:"GPS bloqueado — actívalo en ajustes.",t_locating:"Obteniendo tu ubicación…",
+  t_gen:"Generando ruta…",t_route_fail:"No se pudo trazar. Prueba otra distancia/destino o nivel.",t_loop_need:"No tengo tu ubicación. Pulsa ◎.",
+  t_calc_first:"Genera una ruta primero.",t_saved:"Ruta guardada en Planificadas.",t_deleted:"Eliminado.",
+  t_guide_on:"Guiado activo. Mantén la pantalla encendida.",t_guide_arrive:"Has llegado.",
+  t_gpx_share:"Comparte → OsmAnd → Seguir track.",t_gpx_ready:"GPX con voz descargado. Ábrelo en OsmAnd → Seguir track.",t_gpx_fail:"No se pudo generar el GPX.",
+  t_gmaps:"Abriendo Google Maps · {n} puntos (curvas aprox.).",t_gmaps_long:"Ruta muy larga para Maps. Usa OsmAnd.",
+  t_ride_start:"Grabando ruta libre.",t_ride_saved:"Ruta realizada guardada.",t_ride_stop:"Grabación detenida.",t_gps_lost:"GPS perdido.",
+  t_import:"Importados {n} puntos.",t_engine_fb:"Motor de curvas no disponible — usando alternativa.",
+  t_dl_done:"Zona guardada offline ({n} tiles).",t_dl_busy:"Descargando zona…",t_dl_cap:"Acerca el zoom: zona muy grande.",
+  t_backup_ok:"Copia exportada.",t_restore_ok:"Copia restaurada.",t_restore_fail:"Archivo no válido.",
+  t_upd_none:"Ya tienes la última versión.",t_upd_ready:"Nueva versión lista — toca ⚙ para actualizar.",t_persist_on:"Datos a salvo (almacenamiento persistente).",t_persist_off:"Almacenamiento persistente no garantizado.",
+  log_empty_plan:"Sin rutas planificadas. Genera una y pulsa ★ Guardar.",log_empty_done:"Sin rutas realizadas todavía.",
+  curvas_km:"curvas/km",
   v_left:"Gira a la izquierda",v_right:"Gira a la derecha",v_sleft:"Leve a la izquierda",v_sright:"Leve a la derecha",
   v_shleft:"Giro cerrado a la izquierda",v_shright:"Giro cerrado a la derecha",v_kleft:"Mantente a la izquierda",v_kright:"Mantente a la derecha",
   v_uturn:"Cambio de sentido",v_rndb:"En la rotonda, salida {n}",v_arrive:"Has llegado",v_start:"Guiado iniciado",
-  ds_dist:"distancia",ds_dur:"duración",ds_avg:"media",ds_max:"máx",ds_lvl:"nivel"},
- en:{gTime:"time",gTwist:"twist",
-  m_rapida:"Fast",m_rapida_s:"direct",m_divertida:"Fun",m_divertida_s:"fast+curvy",
-  m_sinuosa:"Curvy",m_sinuosa_s:"curvy",m_extrema:"Extra",m_extrema_s:"max fun",
-  r_setstart:"Tap the map to set a start",r_setdest:"Tap to add a destination",r_route:"Route {n} points",r_calc:"Calculating…",
-  hint_start:"Tap for a <b>start</b> → again for <b>waypoints</b> → it hunts the twisties.",
-  map_style:"Map style",map_cyclosm:"Terrain · CyclOSM",map_osm:"Standard OSM",map_topo:"OpenTopoMap",
-  off_title:"Offline",off_dl:"⤓ Download this area",off_note:"Saves the visible tiles (small area) for no-signal use. For full offline maps, use OsmAnd.",
-  loop_title:"Round trip from your position",loop_dir:"Direction",loop_rand:"⤿ Surprise me",loop_note:"Uses the fun level selected above.",
-  nav_title:"Voice guidance",nav_here:"▶ Guide here with voice (screen on)",nav_osm:"▶ OsmAnd · voice with screen off (GPX) ★",
-  nav_g:"▶ Google Maps · app (approx.)",nav_gb:"▶ Google Maps · browser (3 pts)",
-  nav_note:"CurvaGo speaks only with the screen on. For pocket use, hand off to OsmAnd. Google Maps re-routes between points.",
-  file_title:"Route",file_save:"★ Save this route",file_import:"⤒ Import GPX…",file_lib:"≣ My rides (history)",
-  tab_plan:"Planned",tab_done:"Ridden",
-  set_lang:"Language",set_theme:"Theme",th_sys:"System",th_light:"Light",th_dark:"Dark",
+  ds_avg:"media",ds_max:"máx"},
+ en:{gen_route:"＋ Create route",my_rides:"≣ My rides",free_ride:"● Record free ride",
+  w_title:"New route",w_trip:"Trip type",trip_circular:"⭮ Round trip",trip_round:"⇄ There & back",trip_oneway:"→ One way",
+  w_origin:"Origin",or_gps:"📍 My location",or_map:"🗺 Pick on map",
+  w_dist:"Distance to ride",w_dest:"Destination",de_map:"🗺 Pick destination on map",
+  w_level:"Route type",lvl_rapida:"Fast",lvl_curvas:"Curvy",lvl_sinuosa:"Twisty",lvl_extrema:"Max fun",
+  w_cancel:"Cancel",w_generate:"Generate",
+  sum_time:"time",sum_twist:"twist",res_start:"▶ Start guidance",res_osm:"🔊 OsmAnd (voice)",res_gmaps:"Google Maps",res_save:"★ Save route",res_new:"↺ New route",
+  tab_plan:"Planned",tab_done:"Ridden",back:"← Back",
+  set_lang:"Language",set_theme:"Theme",th_sys:"System",th_light:"Light",th_dark:"Dark",set_map:"Map",off_dl:"⤓ Download this area (offline)",
   set_opt:"Options",set_wake:"Keep screen on",set_voice:"Guidance voice",
   set_data:"Data",set_backup:"⤓ Export backup",set_restore:"⤒ Restore backup",set_update:"↻ Check for update",
-  t_calc_first:"Calculate a route first.",t_gpx_ready:"Voice GPX ready. Open it in OsmAnd → Follow track.",t_gpx_share:"Share → OsmAnd → Follow track.",t_gpx_fail:"Could not build the GPX.",
-  t_gmaps:"Opening Google Maps · {n} points (approx. curves).",t_gmaps_long:"Route too long for Maps. Use the OsmAnd GPX.",
-  t_loop_build:"Building a ~{km} km loop…",t_loop_need:"Set a start or tap ◎ first.",t_route_fail:"Routing failed. Try closer points or another level.",
-  t_geo_no:"No geolocation on this device.",t_geo_block:"GPS blocked — allow it in settings.",t_start_loc:"Start set to your location.",t_start_again:"Tap ◎ once more to set start.",
-  t_cleared:"Cleared.",t_ride_start:"Recording ride.",t_ride_saved:"Ridden route saved.",t_ride_stop:"Recording stopped.",t_gps_lost:"GPS lost.",
-  t_import:"Imported {n} points.",t_import_no:"No points in GPX.",t_import_fail:"Could not read the GPX.",t_engine_fb:"Curvy engine offline — using fallback.",
-  t_saved:"Route saved to Planned.",t_guide_on:"Guidance on. Keep the screen on.",t_guide_need:"Calculate or load a route first.",t_deleted:"Deleted.",
-  t_dl_done:"Area saved offline ({n} tiles).",t_dl_busy:"Downloading area…",t_dl_cap:"Zoom in: area too large.",t_backup_ok:"Backup exported.",t_restore_ok:"Backup restored.",t_restore_fail:"Invalid file.",
-  t_upd_none:"You have the latest version.",t_upd_ready:"New version ready — tap to update.",t_persist_on:"Persistent storage: on (safe from eviction).",t_persist_off:"Persistent storage: not guaranteed.",
-  log_empty_plan:"No planned routes. Route one, then ⇪ → ★ Save.",log_empty_done:"No ridden routes. Hit ▶ to record.",
-  turn_straight:"Mostly straight — follow the orange line.",turn_preview:"Bend preview — voice guidance speaks the junctions.",
-  tn_right:"right",tn_left:"left",tn_sharp:"Sharp ",tn_on:" on",
+  h_gps:"Your current location will be the origin.",h_pickorigin:"Tap the map to set the <b>origin</b>.",h_origin_set:"Origin set ✓",
+  h_pickdest:"Tap the map to set the <b>destination</b>.",h_dest_set:"Destination set ✓",h_need_dest:"Pick the destination on the map.",
+  t_geo_no:"No geolocation on this device.",t_geo_block:"GPS blocked — allow it in settings.",t_locating:"Getting your location…",
+  t_gen:"Generating route…",t_route_fail:"Could not route. Try another distance/destination or level.",t_loop_need:"No location yet. Tap ◎.",
+  t_calc_first:"Generate a route first.",t_saved:"Saved to Planned.",t_deleted:"Deleted.",
+  t_guide_on:"Guidance on. Keep the screen on.",t_guide_arrive:"You have arrived.",
+  t_gpx_share:"Share → OsmAnd → Follow track.",t_gpx_ready:"Voice GPX downloaded. Open in OsmAnd → Follow track.",t_gpx_fail:"Could not build the GPX.",
+  t_gmaps:"Opening Google Maps · {n} points (approx. curves).",t_gmaps_long:"Route too long for Maps. Use OsmAnd.",
+  t_ride_start:"Recording free ride.",t_ride_saved:"Ridden route saved.",t_ride_stop:"Recording stopped.",t_gps_lost:"GPS lost.",
+  t_import:"Imported {n} points.",t_engine_fb:"Curvy engine offline — using fallback.",
+  t_dl_done:"Area saved offline ({n} tiles).",t_dl_busy:"Downloading area…",t_dl_cap:"Zoom in: area too large.",
+  t_backup_ok:"Backup exported.",t_restore_ok:"Backup restored.",t_restore_fail:"Invalid file.",
+  t_upd_none:"You have the latest version.",t_upd_ready:"New version ready — tap ⚙ to update.",t_persist_on:"Data is safe (persistent storage).",t_persist_off:"Persistent storage not guaranteed.",
+  log_empty_plan:"No planned routes. Generate one and tap ★ Save.",log_empty_done:"No ridden routes yet.",
+  curvas_km:"bends/km",
   v_left:"Turn left",v_right:"Turn right",v_sleft:"Slight left",v_sright:"Slight right",
   v_shleft:"Sharp left",v_shright:"Sharp right",v_kleft:"Keep left",v_kright:"Keep right",
   v_uturn:"Make a U-turn",v_rndb:"At the roundabout, exit {n}",v_arrive:"You have arrived",v_start:"Guidance started",
-  ds_dist:"distance",ds_dur:"duration",ds_avg:"avg",ds_max:"max",ds_lvl:"level"}
+  ds_avg:"avg",ds_max:"max"}
 };
 let lang=localStorage.getItem('curvago_lang')||'es';
 function t(k,v){let s=(I18N[lang][k]!==undefined?I18N[lang][k]:(I18N.en[k]||k));if(v)for(const x in v)s=s.replace('{'+x+'}',v[x]);return s;}
 
 /* ---------- Settings ---------- */
-const settings = Object.assign({theme:'system',wake:true,voice:true}, JSON.parse(localStorage.getItem('curvago_set')||'{}'));
+const settings=Object.assign({theme:'system',wake:true,voice:true,layer:'cyclosm'},JSON.parse(localStorage.getItem('curvago_set')||'{}'));
 function saveSettings(){localStorage.setItem('curvago_set',JSON.stringify(settings));}
-function applyTheme(){
-  document.documentElement.dataset.theme=settings.theme;
-  const dark = settings.theme==='dark' || (settings.theme==='system' && matchMedia('(prefers-color-scheme: dark)').matches);
-  $('#themeColor').setAttribute('content', dark?'#0e1116':'#eef1f5');
-}
-function applyLang(){
-  document.documentElement.lang=lang;
+function applyTheme(){document.documentElement.dataset.theme=settings.theme;
+  const dark=settings.theme==='dark'||(settings.theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);
+  $('#themeColor').setAttribute('content',dark?'#0e1116':'#eef1f5');}
+function applyLang(){document.documentElement.lang=lang;
   document.querySelectorAll('[data-i18n]').forEach(el=>el.innerHTML=t(el.dataset.i18n));
-  $('#verLine').textContent='CurvaGo v'+APP_VERSION;
-  syncSettingUI(); refreshMarkers(); if(libOpen) renderLib();
-}
-function syncSettingUI(){
-  $('#setMenu').querySelectorAll('[data-lang]').forEach(b=>b.classList.toggle('sel',b.dataset.lang===lang));
-  $('#setMenu').querySelectorAll('[data-theme]').forEach(b=>b.classList.toggle('sel',b.dataset.theme===settings.theme));
-  $('#swWake').classList.toggle('on',settings.wake);
-  $('#swVoice').classList.toggle('on',settings.voice);
-}
+  $('#verLine').textContent='CurvaGo v'+APP_VERSION;syncSet();if(panelMode==='Lib')renderLib();}
+function syncSet(){const m=$('#setMenu');
+  m.querySelectorAll('[data-lang]').forEach(b=>b.classList.toggle('sel',b.dataset.lang===lang));
+  m.querySelectorAll('[data-theme]').forEach(b=>b.classList.toggle('sel',b.dataset.theme===settings.theme));
+  m.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('sel',b.dataset.layer===settings.layer));
+  $('#swWake').classList.toggle('on',settings.wake);$('#swVoice').classList.toggle('on',settings.voice);}
 
-/* ---------- Curviness profiles ---------- */
+/* ---------- Profiles ---------- */
 function profileText(c){return `
 ---context:global
 assign validForBikes = true
@@ -405,21 +414,20 @@ const LEVELS={
   sinuosa:{motorway:10000,trunk:8,primary:3.5,secondary:1.2,tertiary:0.85,unclassified:0.9,residential:1.3},
   extrema:{motorway:10000,trunk:12,primary:6,secondary:1.6,tertiary:0.7,unclassified:0.8,residential:1.5}
 };
-let mode='sinuosa';
+function levelLabel(l){return t('lvl_'+(l==='divertida'?'curvas':l));}
 const profileIds=JSON.parse(localStorage.getItem('curvago_pids')||'{}');
-async function profileFor(level){
-  if(profileIds[level])return profileIds[level];
+async function profileFor(level){if(profileIds[level])return profileIds[level];
   try{const r=await fetch(BR+"/profile",{method:'POST',headers:{'Content-Type':'text/plain'},body:profileText(LEVELS[level])});
     const j=await r.json();if(j.profileid&&!j.error){profileIds[level]=j.profileid;localStorage.setItem('curvago_pids',JSON.stringify(profileIds));return j.profileid;}}catch(e){}
-  return 'moped';
-}
+  return 'moped';}
 
 /* ---------- State ---------- */
-let waypoints=[],routeLine=null,routeData=null,lastReq=null;
-let me=null,meMarker=null;
+let waypoints=[],routeLine=null,routeData=null,lastReq=null,mode='sinuosa';
+let me=null,meMarker=null,wakeLock=null,panelMode='Idle',libTab='plan';
 let ride={on:false,watch:null,track:[],line:null,dist:0,maxSpd:0,t0:0,speeds:[]};
 let guide={on:false,cues:[],idx:0};
-let wakeLock=null, libOpen=false, libTab='plan';
+let wiz={trip:'circular',origin:'gps',originPt:null,destPt:null,km:100,level:'sinuosa'};
+let pick=null, pickMarkers={origin:null,dest:null};
 
 /* ---------- Map ---------- */
 const map=L.map('map',{zoomControl:false}).setView([53.123,18.008],9);
@@ -428,34 +436,19 @@ const TILES={
   osm:L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}),
   topo:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,subdomains:'abc',attribution:'© OpenTopoMap (CC-BY-SA)'})
 };
-let curLayer='cyclosm'; TILES.cyclosm.addTo(map);
+let curLayer=settings.layer;(TILES[curLayer]||TILES.cyclosm).addTo(map);
 L.control.zoom({position:'bottomleft'}).addTo(map);
 
 /* ---------- Helpers ---------- */
 function toast(m,ms=2600){const e=$('#toast');e.textContent=m;e.classList.add('show');clearTimeout(e._h);e._h=setTimeout(()=>e.classList.remove('show'),ms);}
-function closeMenus(){document.querySelectorAll('.menu').forEach(m=>m.classList.remove('open'));}
-function openMenu(menu,anchor){closeMenus();const r=anchor.getBoundingClientRect();
-  menu.style.left=Math.min(Math.max(8,r.left-10),window.innerWidth-290)+'px';
-  menu.style.top=Math.max(58,r.bottom+8)+'px';menu.classList.add('open');}
-document.addEventListener('click',e=>{if(!e.target.closest('.menu')&&!e.target.closest('.rail')&&!e.target.closest('#btnExport')&&!e.target.closest('#gearBtn'))closeMenus();});
-
+function setPanelHeight(){document.documentElement.style.setProperty('--ph',($('#panel').offsetHeight||150)+'px');}
+function show(name){['Idle','Wizard','Result','Lib'].forEach(s=>$('#sc'+s).hidden=(s!==name));panelMode=name;setTimeout(setPanelHeight,30);}
 function wpIcon(label,color){return L.divIcon({className:'wp',html:
-  `<div style="width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid var(--bg);display:grid;place-items:center;">
-   <span style="transform:rotate(45deg);color:#1a0f04;font-weight:800;font-size:12px;font-family:Barlow Condensed">${label}</span></div>`,iconSize:[26,26],iconAnchor:[13,24]});}
-function refreshMarkers(){
-  waypoints.forEach((w,i)=>{const s=i===0,e=i===waypoints.length-1&&waypoints.length>1;
-    if(w.marker)w.marker.setIcon(wpIcon(s?'S':e?'E':String(i),s?'#3ea6ff':e?'#ff7a18':'#ff9d4d'));});
-  const ok=waypoints.length>=2,b=$('#btnRoute');b.disabled=!ok;
-  b.textContent=ok?t('r_route',{n:waypoints.length}):waypoints.length===1?t('r_setdest'):t('r_setstart');
-}
-function addWaypoint(ll,unshift){
-  const m=L.marker(ll,{icon:wpIcon('?','#ff9d4d'),draggable:true}).addTo(map);
-  const w={lat:ll.lat??ll[0],lng:ll.lng??ll[1],marker:m};
-  m.on('dragend',()=>{const p=m.getLatLng();w.lat=p.lat;w.lng=p.lng;});
-  m.on('click',ev=>{L.DomEvent.stop(ev);map.removeLayer(m);waypoints=waypoints.filter(x=>x!==w);refreshMarkers();});
-  if(unshift)waypoints.unshift(w);else waypoints.push(w);refreshMarkers();return w;
-}
-map.on('click',e=>{closeMenus();addWaypoint(e.latlng);});
+  `<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid var(--bg);display:grid;place-items:center;">
+   <span style="transform:rotate(45deg);color:#1a0f04;font-weight:800;font-size:13px;font-family:Barlow Condensed">${label}</span></div>`,iconSize:[30,30],iconAnchor:[15,28]});}
+function addWaypoint(ll){const m=L.marker(ll,{icon:wpIcon('?','#ff9d4d')}).addTo(map);waypoints.push({lat:ll.lat??ll[0],lng:ll.lng??ll[1],marker:m});colorWaypoints();}
+function colorWaypoints(){waypoints.forEach((w,i)=>{const s=i===0,e=i===waypoints.length-1&&waypoints.length>1;
+  if(w.marker)w.marker.setIcon(wpIcon(s?'S':e?'E':String(i),s?'#3ea6ff':e?'#ff7a18':'#ff9d4d'));});}
 
 function bearing(a,b){const R=x=>x*Math.PI/180,y=Math.sin(R(b[0]-a[0]))*Math.cos(R(b[1]));
   const x=Math.cos(R(a[1]))*Math.sin(R(b[1]))-Math.sin(R(a[1]))*Math.cos(R(b[1]))*Math.cos(R(b[0]-a[0]));return(Math.atan2(y,x)*180/Math.PI+360)%360;}
@@ -463,323 +456,279 @@ function haversine(a,b){const R=6371,r=x=>x*Math.PI/180,dLat=r(b[1]-a[1]),dLon=r
   const s=Math.sin(dLat/2)**2+Math.cos(r(a[1]))*Math.cos(r(b[1]))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(s));}
 function pathKm(c){let k=0;for(let i=1;i<c.length;i++)k+=haversine(c[i-1],c[i]);return k;}
 function fmtDur(min){return min>=60?`${Math.floor(min/60)}h${String(min%60).padStart(2,'0')}`:`${min}min`;}
-
-/* ---------- Routing ---------- */
-async function route(){
-  if(waypoints.length<2)return;closeMenus();exitLib();
-  const b=$('#btnRoute');b.disabled=true;b.innerHTML='<span class="spin"></span> '+t('r_calc');
-  try{
-    await profileFor(mode);
-    const ll=waypoints.map(w=>`${w.lng.toFixed(5)},${w.lat.toFixed(5)}`).join('|');
-    lastReq={ll,level:mode};
-    const r=await fetch(`${BR}?lonlats=${ll}&profile=${profileIds[mode]||'moped'}&alternativeidx=0&format=geojson`);
-    if(!r.ok)throw 0;
-    const gj=await r.json();routeData=gj.features[0];routeData._level=mode;
-    drawRoute(routeData);updateGauges(routeData);buildTurns(routeData);
-    $('#sheet').classList.remove('collapsed');
-  }catch(e){toast(t('t_route_fail'));}
-  finally{b.disabled=false;refreshMarkers();}
-}
-function drawRoute(f){
-  if(routeLine)map.removeLayer(routeLine);
-  const ll=f.geometry.coordinates.map(c=>[c[1],c[0]]);
-  const glow=L.polyline(ll,{color:'#ff7a18',weight:13,opacity:.16});
-  const main=L.polyline(ll,{color:'#ff7a18',weight:5,opacity:.95});
-  routeLine=L.layerGroup([glow,main]).addTo(map);routeLine._main=main;
-  map.fitBounds(main.getBounds(),{padding:[60,60]});
-}
-function updateGauges(f){
-  const p=f.properties,km=(+p['track-length'])/1000,min=Math.round((+p['total-time'])/60);
-  $('#gDist').innerHTML=km<100?km.toFixed(1):Math.round(km);
-  $('#gTime').innerHTML=min>=60?`${Math.floor(min/60)}<small>h</small>${String(min%60).padStart(2,'0')}`:`${min}<small>m</small>`;
-  const tw=curviness(f.geometry.coordinates);$('#gTwist').querySelector('.v').textContent=tw.label;setDial(tw.score);
-}
-function curviness(co){if(co.length<3)return{score:0,label:'—',bpk:0};
-  let bends=0,d=0;for(let i=1;i<co.length-1;i++){let a=bearing(co[i-1],co[i]),b=bearing(co[i],co[i+1]),x=Math.abs(b-a);if(x>180)x=360-x;if(x>18)bends++;d+=haversine(co[i-1],co[i]);}
+function curviness(co){if(co.length<3)return{score:0,label:'—',bpk:0};let bends=0,d=0;
+  for(let i=1;i<co.length-1;i++){let a=bearing(co[i-1],co[i]),b=bearing(co[i],co[i+1]),x=Math.abs(b-a);if(x>180)x=360-x;if(x>18)bends++;d+=haversine(co[i-1],co[i]);}
   d+=haversine(co[co.length-2],co[co.length-1]);const bpk=d>0?bends/d:0,score=Math.max(0,Math.min(1,bpk/6));
   const L=bpk<1?(lang==='es'?'Suave':'Mild'):bpk<2.5?(lang==='es'?'Divert.':'Fun'):bpk<4?(lang==='es'?'Picante':'Spicy'):(lang==='es'?'Brutal':'Wild');
   return{score,label:L,bpk};}
-function setDial(s){const c=2*Math.PI*17;$('#dialArc').setAttribute('stroke-dasharray',`${(s*c).toFixed(1)} ${c}`);}
-
-function buildTurns(f){
-  exitLib();const box=$('#list');box.innerHTML='';
-  const co=f.geometry.coordinates,list=[];let acc=0;
-  for(let i=1;i<co.length-1;i++){acc+=haversine(co[i-1],co[i]);
-    let a=bearing(co[i-1],co[i]),b=bearing(co[i],co[i+1]),d=b-a;while(d>180)d-=360;while(d<-180)d+=360;
-    if(Math.abs(d)>35){const R=d>0,sh=Math.abs(d)>80;list.push({ic:R?(sh?'⤸':'↱'):(sh?'⤹':'↰'),txt:(sh?t('tn_sharp'):'')+(R?t('tn_right'):t('tn_left')),at:acc});acc=0;}}
-  if(!list.length){box.innerHTML=`<div class="item"><div class="ic">↑</div><div class="tx">${t('turn_straight')}</div></div>`;return;}
-  list.slice(0,40).forEach(x=>{const dd=x.at<1?Math.round(x.at*1000)+' m':x.at.toFixed(1)+' km';
-    box.insertAdjacentHTML('beforeend',`<div class="item"><div class="ic">${x.ic}</div><div class="tx"><b>${x.txt}</b><span>${dd}${t('tn_on')}</span></div></div>`);});
-  box.insertAdjacentHTML('beforeend',`<div class="item"><div class="ic">ℹ</div><div class="tx" style="color:var(--ink-faint)">${t('turn_preview')}</div></div>`);
-}
 
 /* ---------- GPS ---------- */
-function locate(cb){
-  if(!navigator.geolocation){toast(t('t_geo_no'));return;}
-  $('#btnGps').classList.add('live');
+function locate(cb,silent){if(!navigator.geolocation){toast(t('t_geo_no'));return;}
+  $('#btnGps').classList.add('live');if(!silent)toast(t('t_locating'),1500);
   navigator.geolocation.getCurrentPosition(p=>{me=[p.coords.latitude,p.coords.longitude];
-    if(meMarker)meMarker.setLatLng(me);else meMarker=L.circleMarker(me,{radius:7,color:'#0b0e12',weight:2,fillColor:'#3ea6ff',fillOpacity:1}).addTo(map);
+    if(meMarker)meMarker.setLatLng(me);else meMarker=L.circleMarker(me,{radius:8,color:'#0b0e12',weight:2,fillColor:'#3ea6ff',fillOpacity:1}).addTo(map);
     map.setView(me,Math.max(map.getZoom(),12));$('#btnGps').classList.remove('live');cb&&cb();},
-    ()=>{$('#btnGps').classList.remove('live');toast(t('t_geo_block'));},{enableHighAccuracy:true,timeout:8000});
-}
-function useMeAsStart(){if(!me){locate(()=>toast(t('t_start_again')));return;}addWaypoint(me,true);toast(t('t_start_loc'));}
+    ()=>{$('#btnGps').classList.remove('live');toast(t('t_geo_block'));},{enableHighAccuracy:true,timeout:9000});}
 
-/* ---------- Round trip ---------- */
+/* ---------- Map picking ---------- */
+function startPick(which){pick=which;$('#panel').classList.add('mini');collapsePanel(true);
+  $('#wHint').innerHTML=t(which==='origin'?'h_pickorigin':'h_pickdest');}
+map.on('click',e=>{closeMenus();if(!pick)return;
+  const p=e.latlng,col=pick==='origin'?'#3ea6ff':'#ff7a18',lab=pick==='origin'?'S':'E';
+  if(pickMarkers[pick])map.removeLayer(pickMarkers[pick]);
+  pickMarkers[pick]=L.marker(p,{icon:wpIcon(lab,col)}).addTo(map);
+  wiz[pick+'Pt']={lat:p.lat,lng:p.lng};
+  $('#wHint').innerHTML=t(pick==='origin'?'h_origin_set':'h_dest_set');
+  pick=null;collapsePanel(false);});
+
+/* ---------- Wizard ---------- */
+function openWizard(){show('Wizard');collapsePanel(false);syncWizard();updateWizHint();
+  if(wiz.origin==='gps'&&!me)locate(null,true);}
+function syncWizard(){
+  $('#optTrip').querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.trip===wiz.trip));
+  $('#optOrigin').querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.origin===wiz.origin));
+  $('#optDist').querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',+b.dataset.km===wiz.km));
+  $('#optLevel').querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.level===wiz.level));
+  $('#distBlock').hidden = wiz.trip!=='circular';
+  $('#destBlock').hidden = wiz.trip==='circular';
+  setTimeout(setPanelHeight,30);
+}
+function updateWizHint(){
+  if(wiz.origin==='map'&&!wiz.originPt){$('#wHint').innerHTML=t('h_pickorigin');return;}
+  if(wiz.trip!=='circular'&&!wiz.destPt){$('#wHint').innerHTML=t('h_need_dest');return;}
+  $('#wHint').innerHTML=wiz.origin==='gps'?t('h_gps'):t('h_origin_set');
+}
+async function generate(){
+  if(wiz.origin==='gps'&&!me){toast(t('t_locating'),1500);locate(()=>generate(),true);return;}
+  if(wiz.origin==='map'&&!wiz.originPt){startPick('origin');return;}
+  if(wiz.trip!=='circular'&&!wiz.destPt){startPick('dest');return;}
+  mode=wiz.level;
+  const o=wiz.origin==='gps'?{lat:me[0],lng:me[1]}:wiz.originPt;
+  clearRouteOnly();
+  if(wiz.trip==='circular'){const pts=buildCircular([o.lat,o.lng],wiz.km,Math.random()*360);pts.forEach(p=>addWaypoint({lat:p[0],lng:p[1]}));}
+  else{addWaypoint(o);if(wiz.trip==='round'){addWaypoint(wiz.destPt);addWaypoint(o);}else addWaypoint(wiz.destPt);}
+  toast(t('t_gen'),1500);
+  const ok=await route();
+  if(ok)showResult();
+}
+function buildCircular(o,km,h){const r=km/(2*Math.PI),pts=[o];[60,180,300].forEach(off=>pts.push(dest(o,r,(h+off)%360)));pts.push(o);return pts;}
 function dest(o,dKm,brg){const R=6371,r=x=>x*Math.PI/180,D=x=>x*180/Math.PI,br=r(brg),la=r(o[0]),lo=r(o[1]),d=dKm/R;
   const la2=Math.asin(Math.sin(la)*Math.cos(d)+Math.cos(la)*Math.sin(d)*Math.cos(br));
   const lo2=lo+Math.atan2(Math.sin(br)*Math.sin(d)*Math.cos(la),Math.cos(d)-Math.sin(la)*Math.sin(la2));return[D(la2),D(lo2)];}
-async function roundTrip(km,dir){closeMenus();
-  let o=waypoints[0]?[waypoints[0].lat,waypoints[0].lng]:me;if(!o){toast(t('t_loop_need'));return;}
-  const h=dir<0?Math.random()*360:dir,r=km/(2*Math.PI);clearAll(true);
-  addWaypoint({lat:o[0],lng:o[1]});[60,180,300].forEach(off=>{const p=dest(o,r,(h+off)%360);addWaypoint({lat:p[0],lng:p[1]});});
-  addWaypoint({lat:o[0],lng:o[1]});toast(t('t_loop_build',{km}));await route();
+
+/* ---------- Routing ---------- */
+async function route(){
+  if(waypoints.length<2)return false;
+  $('#wGenerate').innerHTML='<span class="spin"></span>'+t('t_gen');$('#wGenerate').disabled=true;
+  try{await profileFor(mode);
+    const ll=waypoints.map(w=>`${w.lng.toFixed(5)},${w.lat.toFixed(5)}`).join('|');lastReq={ll,level:mode};
+    const r=await fetch(`${BR}?lonlats=${ll}&profile=${profileIds[mode]||'moped'}&alternativeidx=0&format=geojson`);
+    if(!r.ok)throw 0;const gj=await r.json();routeData=gj.features[0];routeData._level=mode;
+    drawRoute(routeData);return true;
+  }catch(e){toast(t('t_route_fail'));return false;}
+  finally{$('#wGenerate').disabled=false;$('#wGenerate').textContent=t('w_generate');}
+}
+function drawRoute(f){if(routeLine)map.removeLayer(routeLine);
+  const ll=f.geometry.coordinates.map(c=>[c[1],c[0]]);
+  const glow=L.polyline(ll,{color:'#ff7a18',weight:14,opacity:.16}),main=L.polyline(ll,{color:'#ff7a18',weight:6,opacity:.95});
+  routeLine=L.layerGroup([glow,main]).addTo(map);routeLine._b=main.getBounds();map.fitBounds(main.getBounds(),{padding:[50,90]});}
+function showResult(){
+  const p=routeData.properties,km=(+p['track-length'])/1000,min=Math.round((+p['total-time'])/60),tw=curviness(routeData.geometry.coordinates);
+  $('#sDist').innerHTML=km<100?km.toFixed(1):Math.round(km);
+  $('#sTime').innerHTML=min>=60?`${Math.floor(min/60)}<small>h</small>${String(min%60).padStart(2,'0')}`:`${min}<small>m</small>`;
+  $('#sTwist').textContent=tw.label;
+  show('Result');collapsePanel(false);
 }
 
-/* ---------- Wake Lock ---------- */
-async function acquireWake(){if(!settings.wake)return;try{wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{});}catch(e){}}
+/* ---------- Wake lock ---------- */
+async function acquireWake(){if(!settings.wake)return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(e){}}
 function releaseWake(){try{wakeLock&&wakeLock.release();}catch(e){}wakeLock=null;}
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&settings.wake)acquireWake();});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&settings.wake&&(ride.on||guide.on))acquireWake();});
 
-/* ---------- Voice guidance (screen-on) ---------- */
-function parseGpxTurns(text){
-  const xml=new DOMParser().parseFromString(text,'text/xml');
-  const cues=[];[...xml.getElementsByTagName('rtept')].forEach(p=>{
-    const tn=p.getElementsByTagName('turn')[0];if(!tn)return;
-    cues.push({lat:+p.getAttribute('lat'),lon:+p.getAttribute('lon'),code:tn.textContent.trim()});});
-  return cues;
-}
-function turnPhrase(code){
-  if(/^RND|^RNL/.test(code)){const n=(code.match(/\d+/)||[''])[0];return t('v_rndb',{n});}
-  const map={C:'',TL:'v_left',TR:'v_right',TSLL:'v_sleft',TSLR:'v_sright',TSHL:'v_shleft',TSHR:'v_shright',KL:'v_kleft',KR:'v_kright',TU:'v_uturn'};
-  const key=map[code];return key?t(key):'';
-}
-function speak(txt){if(!settings.voice||!txt||!('speechSynthesis'in window))return;
-  try{const u=new SpeechSynthesisUtterance(txt);u.lang=lang==='es'?'es-ES':'en-US';u.rate=1;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
-async function startGuidance(){
-  if(!routeData){toast(t('t_guide_need'));return;}closeMenus();
-  guide.cues=[];guide.idx=0;
-  try{const prof=await profileFor(lastReq?lastReq.level:mode);
-    if(lastReq){const r=await fetch(`${BR}?lonlats=${lastReq.ll}&profile=${prof}&alternativeidx=0&format=gpx`);if(r.ok)guide.cues=parseGpxTurns(await r.text());}}catch(e){}
-  guide.on=true;await acquireWake();
-  $('#navbar').classList.add('on');$('#nvTx').firstChild.textContent=t('v_start');$('#nvSub').textContent='';speak(t('v_start'));
-  startRecording(true);  // a guided ride is also recorded
-  toast(t('t_guide_on'),3200);
-}
-function guidanceStep(pt){ // pt=[lat,lon]
-  if(!guide.on||!guide.cues.length)return;
-  while(guide.idx<guide.cues.length){
-    const c=guide.cues[guide.idx],d=haversine([pt[1],pt[0]],[c.lon,c.lat])*1000;
-    if(d>260)break; // not near next turn yet
-    if(d<110){const ph=turnPhrase(c.code);if(ph){$('#nvIc').textContent=turnArrow(c.code);$('#nvTx').firstChild.textContent=ph;$('#nvSub').textContent='';speak(ph);}guide.idx++;}
-    else{const ph=turnPhrase(c.code);if(ph){$('#nvIc').textContent=turnArrow(c.code);$('#nvTx').firstChild.textContent=ph;$('#nvSub').textContent=Math.round(d)+' m';}break;}
-  }
-  if(guide.idx>=guide.cues.length){$('#nvTx').firstChild.textContent=t('v_arrive');}
-}
+/* ---------- Voice guidance ---------- */
+function parseGpxTurns(text){const xml=new DOMParser().parseFromString(text,'text/xml'),cues=[];
+  [...xml.getElementsByTagName('rtept')].forEach(p=>{const tn=p.getElementsByTagName('turn')[0];if(!tn)return;
+    cues.push({lat:+p.getAttribute('lat'),lon:+p.getAttribute('lon'),code:tn.textContent.trim()});});return cues;}
+function turnPhrase(code){if(/^RN/.test(code)){const n=(code.match(/\d+/)||[''])[0];return t('v_rndb',{n});}
+  const m={TL:'v_left',TR:'v_right',TSLL:'v_sleft',TSLR:'v_sright',TSHL:'v_shleft',TSHR:'v_shright',KL:'v_kleft',KR:'v_kright',TU:'v_uturn'};return m[code]?t(m[code]):'';}
 function turnArrow(c){return{TL:'↰',TR:'↱',TSLL:'↖',TSLR:'↗',TSHL:'⤹',TSHR:'⤸',KL:'↰',KR:'↱',TU:'⟲',C:'↑'}[c]||(/^RN/.test(c)?'◉':'↑');}
-function stopGuidance(){guide.on=false;$('#navbar').classList.remove('on');try{speechSynthesis.cancel();}catch(e){}}
+function speak(txt){if(!settings.voice||!txt||!('speechSynthesis'in window))return;try{const u=new SpeechSynthesisUtterance(txt);u.lang=lang==='es'?'es-ES':'en-US';speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+async function startGuidance(){
+  if(!routeData||!lastReq){toast(t('t_calc_first'));return;}
+  guide.cues=[];guide.idx=0;
+  try{const prof=await profileFor(lastReq.level);const r=await fetch(`${BR}?lonlats=${lastReq.ll}&profile=${prof}&alternativeidx=0&format=gpx`);if(r.ok)guide.cues=parseGpxTurns(await r.text());}catch(e){}
+  guide.on=true;await acquireWake();
+  $('#nav').classList.add('on');$('#nvIc').textContent='▶';$('#nvTx').firstChild.textContent=t('v_start');$('#nvSub').textContent='';speak(t('v_start'));
+  collapsePanel(true);startRecording(true);toast(t('t_guide_on'),3200);
+}
+function guidanceStep(pt){if(!guide.on)return;
+  $('#nvSpd').textContent='';
+  if(!guide.cues.length){$('#nvTx').firstChild.textContent='↑';return;}
+  while(guide.idx<guide.cues.length){const c=guide.cues[guide.idx],d=haversine([pt[1],pt[0]],[c.lon,c.lat])*1000;
+    if(d>300)break;
+    const ph=turnPhrase(c.code);$('#nvIc').textContent=turnArrow(c.code);
+    if(d<110){if(ph){$('#nvTx').firstChild.textContent=ph;$('#nvSub').textContent='';speak(ph);}guide.idx++;}
+    else{if(ph){$('#nvTx').firstChild.textContent=ph;$('#nvSub').textContent=Math.round(d)+' m';}break;}}
+  if(guide.idx>=guide.cues.length){$('#nvTx').firstChild.textContent=t('v_arrive');$('#nvIc').textContent='⚑';}}
+function stopGuidance(){guide.on=false;$('#nav').classList.remove('on');try{speechSynthesis.cancel();}catch(e){}}
 
-/* ---------- Ride recording (also used by guidance) ---------- */
-function startRecording(silent){
-  if(ride.on)return;
-  if(!navigator.geolocation){toast(t('t_geo_no'));return;}
-  ride={on:true,track:[],line:L.polyline([],{color:'#3ea6ff',weight:5}).addTo(map),dist:0,maxSpd:0,t0:Date.now(),speeds:[],watch:null};
-  $('#btnRide').classList.add('on');$('#btnRide').textContent='■';if(!silent)toast(t('t_ride_start'));
-  acquireWake();
-  ride.watch=navigator.geolocation.watchPosition(p=>{
-    const pt=[p.coords.latitude,p.coords.longitude];
+/* ---------- Recording ---------- */
+function startRecording(silent){if(ride.on)return;if(!navigator.geolocation){toast(t('t_geo_no'));return;}
+  ride={on:true,track:[],line:L.polyline([],{color:'#3ea6ff',weight:6}).addTo(map),dist:0,maxSpd:0,t0:Date.now(),speeds:[],watch:null};
+  if(!silent){toast(t('t_ride_start'));show('Result');collapsePanel(true);}acquireWake();
+  ride.watch=navigator.geolocation.watchPosition(p=>{const pt=[p.coords.latitude,p.coords.longitude];
     if(ride.track.length){const pr=ride.track[ride.track.length-1];ride.dist+=haversine([pr[1],pr[0]],[pt[1],pt[0]]);}
     ride.track.push(pt);ride.line.addLatLng(pt);
     const spd=(p.coords.speed||0)*3.6;if(spd>0)ride.speeds.push(spd);if(spd>ride.maxSpd)ride.maxSpd=spd;
-    me=pt;meMarker?meMarker.setLatLng(pt):meMarker=L.circleMarker(pt,{radius:7,color:'#0b0e12',weight:2,fillColor:'#3ea6ff',fillOpacity:1}).addTo(map);
-    map.panTo(pt,{animate:false});
-    $('#gDist').innerHTML=ride.dist.toFixed(1);$('#gTime').innerHTML=Math.round(spd)+'<small>km/h</small>';
-    guidanceStep(pt);
-  },()=>toast(t('t_gps_lost')),{enableHighAccuracy:true,maximumAge:1000});
-}
-function stopRecording(){
-  if(!ride.on)return;
-  if(ride.watch!=null)navigator.geolocation.clearWatch(ride.watch);
-  $('#btnRide').classList.remove('on');$('#btnRide').textContent='▶';
-  if(guide.on)stopGuidance();
-  if(!settings.wake)releaseWake();
-  const ride0=ride;ride={on:false,watch:null,track:[],line:null,dist:0,maxSpd:0,t0:0,speeds:[]};
-  const mins=Math.max(1,Math.round((Date.now()-ride0.t0)/60000));
-  if(ride0.track.length>2){
-    const avg=ride0.dist/(((Date.now()-ride0.t0)/3600000)||1);
-    const co=ride0.track.map(p=>[p[1],p[0]]);
-    const done=loadStore('curvago_done');
-    done.unshift({id:Date.now(),date:new Date().toISOString(),km:+ride0.dist.toFixed(1),min:mins,
-      avg:Math.round(avg),max:Math.round(ride0.maxSpd),twist:+curviness(co).bpk.toFixed(1),
-      track:ride0.track.map(p=>[+p[0].toFixed(5),+p[1].toFixed(5)])});
-    saveStore('curvago_done',done.slice(0,100));toast(t('t_ride_saved'));
-  }else toast(t('t_ride_stop'));
-  if(libOpen)renderLib();
-}
-function toggleRide(){ride.on?stopRecording():startRecording(false);}
+    me=pt;meMarker?meMarker.setLatLng(pt):0;map.panTo(pt,{animate:false});
+    if(guide.on)$('#nvSpd').textContent=Math.round(spd)+' km/h';guidanceStep(pt);
+  },()=>toast(t('t_gps_lost')),{enableHighAccuracy:true,maximumAge:1000});}
+function stopRecording(){if(!ride.on)return;if(ride.watch!=null)navigator.geolocation.clearWatch(ride.watch);
+  if(guide.on)stopGuidance();if(!settings.wake)releaseWake();
+  const r0=ride;ride={on:false,watch:null,track:[],line:null,dist:0,maxSpd:0,t0:0,speeds:[]};
+  const mins=Math.max(1,Math.round((Date.now()-r0.t0)/60000));
+  if(r0.track.length>2){const avg=r0.dist/(((Date.now()-r0.t0)/3600000)||1),co=r0.track.map(p=>[p[1],p[0]]);
+    const done=loadStore('curvago_done');done.unshift({id:Date.now(),date:new Date().toISOString(),km:+r0.dist.toFixed(1),min:mins,avg:Math.round(avg),max:Math.round(r0.maxSpd),twist:+curviness(co).bpk.toFixed(1),track:r0.track.map(p=>[+p[0].toFixed(5),+p[1].toFixed(5)])});
+    saveStore('curvago_done',done.slice(0,100));toast(t('t_ride_saved'));}else toast(t('t_ride_stop'));
+  if(panelMode==='Lib')renderLib();}
 
-/* ---------- OsmAnd / Google Maps hand-off ---------- */
-async function buildGpx(){const prof=await profileFor(lastReq.level);
-  const r=await fetch(`${BR}?lonlats=${lastReq.ll}&profile=${prof}&alternativeidx=0&format=gpx`);if(!r.ok)throw 0;return r.text();}
-async function exportOsmAnd(){closeMenus();if(!lastReq){toast(t('t_calc_first'));return;}
-  try{const gpx=await buildGpx();const file=new File([gpx],'curvago-osmand.gpx',{type:'application/gpx+xml'});
+/* ---------- Hand-off ---------- */
+async function buildGpx(){const prof=await profileFor(lastReq.level);const r=await fetch(`${BR}?lonlats=${lastReq.ll}&profile=${prof}&alternativeidx=0&format=gpx`);if(!r.ok)throw 0;return r.text();}
+async function exportOsmAnd(){if(!lastReq){toast(t('t_calc_first'));return;}
+  try{const gpx=await buildGpx(),file=new File([gpx],'curvago-osmand.gpx',{type:'application/gpx+xml'});
     if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'CurvaGo',text:'OsmAnd → Follow track'});toast(t('t_gpx_share'),3600);}
-    else{download('curvago-osmand.gpx',gpx);toast(t('t_gpx_ready'),4200);}
-  }catch(e){if(e&&e.name==='AbortError')return;toast(t('t_gpx_fail'));}}
-function download(n,txt){const b=new Blob([txt],{type:'application/gpx+xml'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();}
+    else{download('curvago-osmand.gpx',gpx);toast(t('t_gpx_ready'),4200);}}catch(e){if(e&&e.name==='AbortError')return;toast(t('t_gpx_fail'));}}
+function download(n,txt){const b=new Blob([txt],{type:'application/gpx+xml'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();}
 function perp(p,a,b){const x=p[0],y=p[1],x1=a[0],y1=a[1],x2=b[0],y2=b[1],kx=Math.cos(y*Math.PI/180)*111,ky=111,dx=(x2-x1)*kx,dy=(y2-y1)*ky,L=dx*dx+dy*dy;
   if(L===0)return Math.hypot((x-x1)*kx,(y-y1)*ky);let tt=(((x-x1)*kx*dx)+((y-y1)*ky*dy))/L;tt=Math.max(0,Math.min(1,tt));return Math.hypot((x-x1)*kx-tt*dx,(y-y1)*ky-tt*dy);}
 function dpKeep(p,eps){const k=new Array(p.length).fill(false);k[0]=k[p.length-1]=true;(function rec(s,e){let mx=0,id=-1;for(let i=s+1;i<e;i++){const d=perp(p[i],p[s],p[e]);if(d>mx){mx=d;id=i;}}if(mx>eps&&id>-1){k[id]=true;rec(s,id);rec(id,e);}})(0,p.length-1);return p.filter((_,i)=>k[i]);}
 function shaping(co,mw){if(co.length<=mw+2)return co;let lo=0.02,hi=20,best=[co[0],co[co.length-1]];for(let i=0;i<22;i++){const e=(lo+hi)/2,s=dpKeep(co,e);if(s.length>mw+2)lo=e;else{best=s;hi=e;}}return best;}
-function openGoogle(mw){closeMenus();if(!routeData){toast(t('t_calc_first'));return;}
-  const pts=shaping(routeData.geometry.coordinates,mw),f=p=>`${p[1].toFixed(5)},${p[0].toFixed(5)}`,vias=pts.slice(1,-1).map(f).join('|');
+function openGoogle(){if(!routeData){toast(t('t_calc_first'));return;}
+  const pts=shaping(routeData.geometry.coordinates,9),f=p=>`${p[1].toFixed(5)},${p[0].toFixed(5)}`,vias=pts.slice(1,-1).map(f).join('|');
   let u=`https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&origin=${f(pts[0])}&destination=${f(pts[pts.length-1])}`;
   if(vias)u+=`&waypoints=${encodeURIComponent(vias)}`;if(u.length>2048){toast(t('t_gmaps_long'));return;}
   toast(t('t_gmaps',{n:pts.length-2}));location.href=u;}
 
-/* ---------- Offline area download ---------- */
-function lon2x(lon,z){return Math.floor((lon+180)/360*Math.pow(2,z));}
-function lat2y(lat,z){return Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*Math.pow(2,z));}
-function tileUrl(z,x,y){const sd=['a','b','c'][(x+y)%3];
-  if(curLayer==='cyclosm')return `https://${sd}.tile-cyclosm.openstreetmap.fr/cyclosm/${z}/${x}/${y}.png`;
-  if(curLayer==='topo')return `https://${sd}.tile.opentopomap.org/${z}/${x}/${y}.png`;
-  return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;}
-async function downloadArea(){
-  const b=map.getBounds(),z0=Math.round(map.getZoom());const zmax=Math.min(z0+2,curLayer==='topo'?17:18);
+/* ---------- Offline ---------- */
+function lon2x(lo,z){return Math.floor((lo+180)/360*Math.pow(2,z));}
+function lat2y(la,z){return Math.floor((1-Math.log(Math.tan(la*Math.PI/180)+1/Math.cos(la*Math.PI/180))/Math.PI)/2*Math.pow(2,z));}
+function tileUrl(z,x,y){const sd=['a','b','c'][(x+y)%3];if(curLayer==='cyclosm')return `https://${sd}.tile-cyclosm.openstreetmap.fr/cyclosm/${z}/${x}/${y}.png`;
+  if(curLayer==='topo')return `https://${sd}.tile.opentopomap.org/${z}/${x}/${y}.png`;return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;}
+async function downloadArea(){const b=map.getBounds(),z0=Math.round(map.getZoom()),zmax=Math.min(z0+2,curLayer==='topo'?17:18);
   let urls=[];for(let z=z0;z<=zmax;z++){const x1=lon2x(b.getWest(),z),x2=lon2x(b.getEast(),z),y1=lat2y(b.getNorth(),z),y2=lat2y(b.getSouth(),z);
     for(let x=x1;x<=x2;x++)for(let y=y1;y<=y2;y++)urls.push(tileUrl(z,x,y));}
   if(urls.length>900){toast(t('t_dl_cap'));return;}
-  const prog=$('#dlProg');prog.classList.add('on');prog.firstElementChild.style.width='0';toast(t('t_dl_busy'));
-  let done=0;const conc=6;
-  async function worker(q){while(q.length){const u=q.pop();try{await fetch(u,{mode:'no-cors'});}catch(e){}done++;prog.firstElementChild.style.width=(done/urls.length*100)+'%';}}
-  const q=urls.slice();await Promise.all(Array.from({length:conc},()=>worker(q)));
-  prog.classList.remove('on');toast(t('t_dl_done',{n:urls.length}));closeMenus();
-}
+  const pr=$('#dlProg');pr.classList.add('on');pr.firstElementChild.style.width='0';toast(t('t_dl_busy'));
+  let done=0;async function w(q){while(q.length){const u=q.pop();try{await fetch(u,{mode:'no-cors'});}catch(e){}done++;pr.firstElementChild.style.width=(done/urls.length*100)+'%';}}
+  const q=urls.slice();await Promise.all(Array.from({length:6},()=>w(q)));pr.classList.remove('on');toast(t('t_dl_done',{n:urls.length}));}
 
 /* ---------- Storage / library ---------- */
 function loadStore(k){try{return JSON.parse(localStorage.getItem(k)||'[]');}catch(e){return[];}}
 function saveStore(k,v){localStorage.setItem(k,JSON.stringify(v));}
-function saveCurrentRoute(){
-  closeMenus();if(!routeData||!lastReq){toast(t('t_calc_first'));return;}
-  const km=(+routeData.properties['track-length'])/1000,min=Math.round((+routeData.properties['total-time'])/60);
-  const plan=loadStore('curvago_plan');
-  plan.unshift({id:Date.now(),date:new Date().toISOString(),km:+km.toFixed(1),min,level:lastReq.level,
-    twist:+curviness(routeData.geometry.coordinates).bpk.toFixed(1),ll:lastReq.ll,
-    geo:routeData.geometry.coordinates.map(c=>[+c[1].toFixed(5),+c[0].toFixed(5)])});
-  saveStore('curvago_plan',plan.slice(0,100));toast(t('t_saved'));if(libOpen)renderLib();
-}
-function openLib(){closeMenus();libOpen=true;$('#libTabs').classList.add('on');$('#sheet').classList.remove('collapsed');renderLib();}
-function exitLib(){libOpen=false;$('#libTabs').classList.remove('on');}
-function levelName(l){return t('m_'+l);}
-function renderLib(){
-  const box=$('#list');box.innerHTML='';
-  $('#libTabs').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.tab===libTab));
+function saveCurrentRoute(){if(!routeData||!lastReq){toast(t('t_calc_first'));return;}
+  const km=(+routeData.properties['track-length'])/1000,min=Math.round((+routeData.properties['total-time'])/60),plan=loadStore('curvago_plan');
+  plan.unshift({id:Date.now(),date:new Date().toISOString(),km:+km.toFixed(1),min,level:lastReq.level,twist:+curviness(routeData.geometry.coordinates).bpk.toFixed(1),ll:lastReq.ll,geo:routeData.geometry.coordinates.map(c=>[+c[1].toFixed(5),+c[0].toFixed(5)])});
+  saveStore('curvago_plan',plan.slice(0,100));toast(t('t_saved'));}
+function openLib(){show('Lib');collapsePanel(false);renderLib();}
+function renderLib(){const box=$('#list');box.innerHTML='';
+  $('#scLib').querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===libTab));
   const data=loadStore(libTab==='plan'?'curvago_plan':'curvago_done');
   if(!data.length){box.innerHTML=`<div class="item"><div class="ic">≣</div><div class="tx">${t(libTab==='plan'?'log_empty_plan':'log_empty_done')}</div></div>`;return;}
-  data.forEach(it=>{
-    const d=new Date(it.date).toLocaleDateString();
-    let sub = libTab==='plan'
-      ? `${fmtDur(it.min)} · ${it.twist} ${lang==='es'?'curvas/km':'bends/km'} · ${levelName(it.level)} · ${d}`
-      : `${fmtDur(it.min)} · ${t('ds_avg')} ${it.avg} · ${t('ds_max')} ${it.max} km/h · ${it.twist} ${lang==='es'?'curvas/km':'bends/km'} · ${d}`;
+  data.forEach(it=>{const d=new Date(it.date).toLocaleDateString();
+    const sub=libTab==='plan'?`${fmtDur(it.min)} · ${it.twist} ${t('curvas_km')} · ${levelLabel(it.level)} · ${d}`
+      :`${fmtDur(it.min)} · ${t('ds_avg')} ${it.avg} · ${t('ds_max')} ${it.max} km/h · ${it.twist} ${t('curvas_km')} · ${d}`;
     const el=document.createElement('div');el.className='item';
-    el.innerHTML=`<div class="ic">${libTab==='plan'?'★':'✓'}</div>
-      <div class="tx"><b>${it.km} km</b><span>${sub}</span></div>
-      <div class="act"><button data-a="show">◵</button>${libTab==='plan'?'<button data-a="nav">▶</button>':''}<button data-a="del">🗑</button></div>`;
+    el.innerHTML=`<div class="ic">${libTab==='plan'?'★':'✓'}</div><div class="tx"><b>${it.km} km</b><span>${sub}</span></div>
+      <div class="act"><button data-a="show">◵</button>${libTab==='plan'?'<button data-a="go">▶</button>':''}<button data-a="del">🗑</button></div>`;
     el.querySelector('[data-a="show"]').onclick=()=>showStored(it);
-    const nav=el.querySelector('[data-a="nav"]');if(nav)nav.onclick=()=>{showStored(it);lastReq={ll:it.ll,level:it.level};openMenu($('#exportMenu'),$('#btnExport'));};
-    el.querySelector('[data-a="del"]').onclick=()=>{const arr=loadStore(libTab==='plan'?'curvago_plan':'curvago_done').filter(x=>x.id!==it.id);saveStore(libTab==='plan'?'curvago_plan':'curvago_done',arr);toast(t('t_deleted'));renderLib();};
-    box.appendChild(el);
-  });
-}
-function showStored(it){
-  if(routeLine)map.removeLayer(routeLine);
-  const ll=it.geo||it.track;routeLine=L.polyline(ll,{color:libTab==='plan'?'#ff7a18':'#3ea6ff',weight:5}).addTo(map);
-  map.fitBounds(routeLine.getBounds(),{padding:[50,50]});
-  if(it.geo){const co=it.geo.map(p=>[p[1],p[0]]);routeData={geometry:{coordinates:co},properties:{'track-length':String(it.km*1000),'total-time':String(it.min*60)},_level:it.level};lastReq={ll:it.ll,level:it.level};}
-}
+    const go=el.querySelector('[data-a="go"]');if(go)go.onclick=()=>{showStored(it);lastReq={ll:it.ll,level:it.level};showResult();};
+    el.querySelector('[data-a="del"]').onclick=()=>{const a=loadStore(libTab==='plan'?'curvago_plan':'curvago_done').filter(x=>x.id!==it.id);saveStore(libTab==='plan'?'curvago_plan':'curvago_done',a);toast(t('t_deleted'));renderLib();};
+    box.appendChild(el);});}
+function showStored(it){if(routeLine)map.removeLayer(routeLine);const ll=it.geo||it.track;
+  routeLine=L.polyline(ll,{color:libTab==='plan'?'#ff7a18':'#3ea6ff',weight:6}).addTo(map);map.fitBounds(routeLine.getBounds(),{padding:[50,90]});
+  if(it.geo){const co=it.geo.map(p=>[p[1],p[0]]);routeData={geometry:{coordinates:co},properties:{'track-length':String(it.km*1000),'total-time':String(it.min*60)},_level:it.level};lastReq={ll:it.ll,level:it.level};}}
 
 /* ---------- Backup ---------- */
-function exportBackup(){closeMenus();
-  const data={app:'CurvaGo',version:APP_VERSION,date:new Date().toISOString(),
-    plan:loadStore('curvago_plan'),done:loadStore('curvago_done'),settings,lang};
-  const b=new Blob([JSON.stringify(data)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='curvago-backup.json';a.click();toast(t('t_backup_ok'));}
+function exportBackup(){const data={app:'CurvaGo',version:APP_VERSION,date:new Date().toISOString(),plan:loadStore('curvago_plan'),done:loadStore('curvago_done'),settings,lang};
+  const b=new Blob([JSON.stringify(data)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='curvago-backup.json';a.click();toast(t('t_backup_ok'));}
 function importBackup(text){try{const d=JSON.parse(text);if(d.plan)saveStore('curvago_plan',d.plan);if(d.done)saveStore('curvago_done',d.done);
-  if(d.settings){Object.assign(settings,d.settings);saveSettings();}if(d.lang){lang=d.lang;localStorage.setItem('curvago_lang',lang);}
-  applyTheme();applyLang();toast(t('t_restore_ok'));}catch(e){toast(t('t_restore_fail'));}}
+  if(d.settings)Object.assign(settings,d.settings),saveSettings();if(d.lang){lang=d.lang;localStorage.setItem('curvago_lang',lang);}applyTheme();applyLang();toast(t('t_restore_ok'));}catch(e){toast(t('t_restore_fail'));}}
 
 /* ---------- Clear ---------- */
-function clearAll(keep){waypoints.forEach(w=>map.removeLayer(w.marker));waypoints=[];
-  if(routeLine){map.removeLayer(routeLine);routeLine=null;}routeData=null;lastReq=null;exitLib();
-  $('#gDist').textContent='—';$('#gTime').textContent='—';$('#gTwist').querySelector('.v').textContent='—';setDial(0);$('#list').innerHTML='';refreshMarkers();if(!keep)toast(t('t_cleared'));}
+function clearRouteOnly(){waypoints.forEach(w=>map.removeLayer(w.marker));waypoints=[];if(routeLine){map.removeLayer(routeLine);routeLine=null;}routeData=null;}
+function resetAll(){clearRouteOnly();lastReq=null;Object.values(pickMarkers).forEach(m=>m&&map.removeLayer(m));pickMarkers={origin:null,dest:null};wiz.originPt=null;wiz.destPt=null;}
 
-/* ---------- Service worker / updates ---------- */
+/* ---------- Panel collapse ---------- */
+function collapsePanel(c){$('#panel').style.transform=c?'translateY(calc(100% - 64px))':'translateY(0)';setTimeout(setPanelHeight,260);}
+
+/* ---------- Menus ---------- */
+function closeMenus(){document.querySelectorAll('.menu').forEach(m=>m.classList.remove('open'));}
+document.addEventListener('click',e=>{if(!e.target.closest('.menu')&&!e.target.closest('#gearBtn'))closeMenus();});
+
+/* ---------- Service worker ---------- */
 let waitingSW=null;
-function setupSW(){
-  if(!('serviceWorker'in navigator))return;
-  navigator.serviceWorker.register('sw.js').then(reg=>{
-    reg.addEventListener('updatefound',()=>{const nw=reg.installing;nw&&nw.addEventListener('statechange',()=>{
-      if(nw.state==='installed'&&navigator.serviceWorker.controller){waitingSW=nw;$('#gearBtn').classList.add('upd');toast(t('t_upd_ready'),5000);}});});
-  }).catch(()=>{});
-  let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloaded)return;reloaded=true;location.reload();});
-}
-function applyUpdate(){if(waitingSW){waitingSW.postMessage('skipWaiting');}else location.reload();}
+function setupSW(){if(!('serviceWorker'in navigator))return;
+  navigator.serviceWorker.register('sw.js').then(reg=>{reg.addEventListener('updatefound',()=>{const nw=reg.installing;nw&&nw.addEventListener('statechange',()=>{
+    if(nw.state==='installed'&&navigator.serviceWorker.controller){waitingSW=nw;$('#gearBtn').classList.add('upd');toast(t('t_upd_ready'),5000);}});});}).catch(()=>{});
+  let rl=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(rl)return;rl=true;location.reload();});}
 function checkUpdate(){if(!('serviceWorker'in navigator))return;navigator.serviceWorker.getRegistration().then(r=>{if(!r)return;r.update();setTimeout(()=>{if(!waitingSW)toast(t('t_upd_none'));},1500);});}
 
-/* ---------- Wire up ---------- */
-$('#gearBtn').onclick=()=>{if($('#gearBtn').classList.contains('upd')&&waitingSW){applyUpdate();return;}openMenu($('#setMenu'),$('#gearBtn'));};
-$('#btnRoute').onclick=route;
-$('#btnClear').onclick=()=>clearAll(false);
-$('#btnGps').onclick=()=>{waypoints.length===0?useMeAsStart():locate();};
-$('#btnLayers').onclick=()=>openMenu($('#layersMenu'),$('#btnLayers'));
-$('#btnLoop').onclick=()=>openMenu($('#loopMenu'),$('#btnLoop'));
-$('#btnRide').onclick=toggleRide;
-$('#btnExport').onclick=()=>openMenu($('#exportMenu'),$('#btnExport'));
-$('#nvStop').onclick=()=>{stopGuidance();stopRecording();};
-$('#layersMenu').onclick=e=>{const l=e.target.dataset.layer;if(l){Object.values(TILES).forEach(x=>map.removeLayer(x));TILES[l].addTo(map);curLayer=l;closeMenus();}};
+/* ---------- Wire ---------- */
+$('#gearBtn').onclick=()=>{if($('#gearBtn').classList.contains('upd')&&waitingSW){waitingSW.postMessage('skipWaiting');return;}$('#setMenu').classList.toggle('open');};
+$('#btnGps').onclick=()=>locate();
+$('#goGenerate').onclick=()=>{resetAll();openWizard();};
+$('#goLibrary').onclick=openLib;
+$('#goFreeRide').onclick=()=>startRecording(false);
+$('#libBack').onclick=()=>show('Idle');
+/* wizard option groups */
+$('#optTrip').onclick=e=>{const v=e.target.closest('[data-trip]');if(!v)return;wiz.trip=v.dataset.trip;syncWizard();updateWizHint();};
+$('#optOrigin').onclick=e=>{const v=e.target.closest('[data-origin]');if(!v)return;wiz.origin=v.dataset.origin;syncWizard();if(wiz.origin==='map')startPick('origin');else{if(!me)locate(null,true);updateWizHint();}};
+$('#optDist').onclick=e=>{const v=e.target.closest('[data-km]');if(!v)return;wiz.km=+v.dataset.km;syncWizard();};
+$('#pickDest').onclick=()=>startPick('dest');
+$('#optLevel').onclick=e=>{const v=e.target.closest('[data-level]');if(!v)return;wiz.level=v.dataset.level;syncWizard();};
+$('#wCancel').onclick=()=>{resetAll();show('Idle');};
+$('#wGenerate').onclick=generate;
+/* result */
+$('#startBtn').onclick=startGuidance;
+$('#rOsm').onclick=exportOsmAnd;
+$('#rGmaps').onclick=openGoogle;
+$('#rSave').onclick=saveCurrentRoute;
+$('#rNew').onclick=()=>{resetAll();openWizard();};
+$('#nvStop').onclick=()=>{stopGuidance();stopRecording();show('Result');collapsePanel(false);};
+/* lib tabs */
+$('#scLib').querySelector('.tabs').onclick=e=>{const tb=e.target.dataset.tab;if(tb){libTab=tb;renderLib();}};
+/* settings */
+$('#setMenu').onclick=e=>{const L=e.target.dataset.lang,Th=e.target.dataset.theme,Ly=e.target.dataset.layer;
+  if(L){lang=L;localStorage.setItem('curvago_lang',lang);applyLang();}
+  if(Th){settings.theme=Th;saveSettings();applyTheme();syncSet();}
+  if(Ly){Object.values(TILES).forEach(x=>map.removeLayer(x));TILES[Ly].addTo(map);curLayer=Ly;settings.layer=Ly;saveSettings();syncSet();}};
 $('#dlArea').onclick=downloadArea;
-$('#loopMenu').onclick=e=>{const km=e.target.dataset.km,dir=e.target.dataset.dir;
-  if(km){$('#loopMenu')._km=+km;$('#loopMenu').querySelectorAll('[data-km]').forEach(b=>b.classList.toggle('sel',b===e.target));}
-  if(dir!==undefined)roundTrip($('#loopMenu')._km||100,+dir);};
-$('#guideHere').onclick=startGuidance;
-$('#navOsm').onclick=exportOsmAnd;
-$('#navG').onclick=()=>openGoogle(9);
-$('#navGb').onclick=()=>openGoogle(3);
-$('#saveRoute').onclick=saveCurrentRoute;
-$('#doImport').onclick=()=>$('#fileInput').click();
-$('#doLib').onclick=openLib;
-$('#libTabs').onclick=e=>{const tb=e.target.dataset.tab;if(tb){libTab=tb;renderLib();}};
-$('#fileInput').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>importGPX(rd.result);rd.readAsText(f);e.target.value='';};
+$('#swWake').onclick=()=>{settings.wake=!settings.wake;saveSettings();syncSet();settings.wake?acquireWake():releaseWake();};
+$('#swVoice').onclick=()=>{settings.voice=!settings.voice;saveSettings();syncSet();};
 $('#backupExport').onclick=exportBackup;
 $('#backupImport').onclick=()=>$('#backupFile').click();
 $('#backupFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>importBackup(rd.result);rd.readAsText(f);e.target.value='';};
 $('#checkUpd').onclick=checkUpdate;
-$('#setMenu').onclick=e=>{const L=e.target.dataset.lang,Th=e.target.dataset.theme;
-  if(L){lang=L;localStorage.setItem('curvago_lang',lang);applyLang();}
-  if(Th){settings.theme=Th;saveSettings();applyTheme();syncSettingUI();}};
-$('#swWake').onclick=()=>{settings.wake=!settings.wake;saveSettings();syncSettingUI();settings.wake?acquireWake():releaseWake();};
-$('#swVoice').onclick=()=>{settings.voice=!settings.voice;saveSettings();syncSettingUI();};
-document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));c.classList.add('on');mode=c.dataset.mode;if(waypoints.length>=2)route();});
-let dragY=null;
-$('#grip').addEventListener('touchstart',e=>dragY=e.touches[0].clientY,{passive:true});
-$('#grip').addEventListener('touchmove',e=>{if(dragY===null)return;const dy=e.touches[0].clientY-dragY;if(dy>30)$('#sheet').classList.add('collapsed');if(dy<-30)$('#sheet').classList.remove('collapsed');},{passive:true});
+$('#fileInput').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>importGPX(rd.result);rd.readAsText(f);e.target.value='';};
+let dragY=null,startT=0;
+$('#grip').addEventListener('touchstart',e=>{dragY=e.touches[0].clientY;startT=$('#panel').style.transform;},{passive:true});
+$('#grip').addEventListener('touchmove',e=>{if(dragY===null)return;const dy=e.touches[0].clientY-dragY;if(dy>40)collapsePanel(true);if(dy<-40)collapsePanel(false);},{passive:true});
 $('#grip').addEventListener('touchend',()=>dragY=null);
-$('#grip').onclick=()=>$('#sheet').classList.toggle('collapsed');
+$('#grip').onclick=()=>{const c=$('#panel').style.transform.includes('100%');collapsePanel(!c);};
 
-function importGPX(text){try{const xml=new DOMParser().parseFromString(text,'text/xml');
-  let n=[...xml.getElementsByTagName('trkpt')];if(!n.length)n=[...xml.getElementsByTagName('rtept')];if(!n.length)n=[...xml.getElementsByTagName('wpt')];
-  if(!n.length){toast(t('t_import_no'));return;}
-  const ll=n.map(e=>[+e.getAttribute('lat'),+e.getAttribute('lon')]);if(routeLine)map.removeLayer(routeLine);
-  routeLine=L.polyline(ll,{color:'#ff7a18',weight:5}).addTo(map);map.fitBounds(routeLine.getBounds(),{padding:[50,50]});
-  const co=ll.map(p=>[p[1],p[0]]);routeData={geometry:{coordinates:co},properties:{'track-length':String(Math.round(pathKm(co)*1000)),'total-time':'0'}};
-  updateGauges(routeData);exitLib();$('#list').innerHTML='';toast(t('t_import',{n:n.length}));}catch(e){toast(t('t_import_fail'));}}
+function importGPX(text){try{const xml=new DOMParser().parseFromString(text,'text/xml');let n=[...xml.getElementsByTagName('trkpt')];if(!n.length)n=[...xml.getElementsByTagName('rtept')];
+  if(!n.length){toast(t('t_route_fail'));return;}const ll=n.map(e=>[+e.getAttribute('lat'),+e.getAttribute('lon')]);if(routeLine)map.removeLayer(routeLine);
+  routeLine=L.polyline(ll,{color:'#ff7a18',weight:6}).addTo(map);map.fitBounds(routeLine.getBounds(),{padding:[50,90]});
+  const co=ll.map(p=>[p[1],p[0]]);routeData={geometry:{coordinates:co},properties:{'track-length':String(Math.round(pathKm(co)*1000)),'total-time':'0'}};showResult();toast(t('t_import',{n:n.length}));}catch(e){toast(t('t_route_fail'));}}
 
 /* ---------- Startup ---------- */
-applyTheme();applyLang();
+applyTheme();applyLang();show('Idle');setPanelHeight();
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',applyTheme);
-if(navigator.storage&&navigator.storage.persist){navigator.storage.persisted().then(p=>{if(p){$('#persistNote').textContent=t('t_persist_on');}
-  else navigator.storage.persist().then(g=>$('#persistNote').textContent=t(g?'t_persist_on':'t_persist_off'));});}
-profileFor(mode).then(id=>{if(id==='moped')toast(t('t_engine_fb'));});
-setTimeout(()=>{if(navigator.geolocation)locate();},600);
-if(settings.wake)acquireWake();
+if(navigator.storage&&navigator.storage.persist){navigator.storage.persisted().then(p=>{if(p)$('#persistNote').textContent=t('t_persist_on');else navigator.storage.persist().then(g=>$('#persistNote').textContent=t(g?'t_persist_on':'t_persist_off'));});}
+profileFor('sinuosa').then(id=>{if(id==='moped')toast(t('t_engine_fb'));});
+setTimeout(()=>{if(navigator.geolocation)locate(null,true);},700);
+if(settings.wake){/* acquired when guiding/recording */}
+window.addEventListener('resize',setPanelHeight);
 setupSW();
 </script>
 </body>
